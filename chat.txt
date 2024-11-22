@@ -1,0 +1,32 @@
+Hey chat, can you set up vim to have an easier hotkey for saving and exiting?
+
+----------------------------------------user
+
+close
+
+----------------------------------------assistant
+
+You're welcome! I'm glad I could help. If you have any more questions, feel free to ask.
+
+
+
+----------------------------------------user
+
+Oh cool thanks
+
+
+
+
+
+----------------------------------------assistant
+
+Most nebulae in natural color appear as shades of red, pink, purple, and blue. This is because of the gases and dust within the nebulae that emit or scatter different wavelengths of light. These colors can vary depending on the composition, temperature, and density of the gases and dust in the nebula.
+
+
+
+----------------------------------------user
+
+Hey chat, what color are most nebulae in natural color?
+
+
+
