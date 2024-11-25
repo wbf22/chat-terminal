@@ -197,9 +197,11 @@ public class Main {
             for (int i = history.size() - 1; i >= 0; i--) {
                 Message m = history.get(i);
                 writer.write(PROMPT_DIVIDER + m.role + "\n");
+                String quote = "" + '"';
                 String unescaped = m.content
                     .replace("\\n", "\n")
                     .replace("\\t", "\t")
+                    .replace("\\\\\"", "\"")
                     .replace("\\\"", "\"");
                 writer.write(unescaped);
             }
