@@ -41,13 +41,14 @@ import brandon.gpt.Main.Serializer.ParamType;
 
 public class Main {
 
+    public static final String API_KEY = "";  // Replace with your actual OpenAI API key
+
     public static int MAX_TOKENS = 4096;
     public static String PROMPT_DIVIDER = "----------------------------------------";
     public static List<String> EXIT_COMMANDS = List.of("exit", "quit", "close");
     public static String FILE = "chat.md";
     public static String MODEL = "gpt-3.5-turbo";
     public static final String API_URL = "https://api.openai.com/v1/chat/completions";
-    public static final String API_KEY = "";  // Replace with your actual OpenAI API key
     public static final int HISTORY_LENGTH = 20;
 
 

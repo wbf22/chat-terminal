@@ -12,6 +12,8 @@ There are two modes:
 
 
 # Building
+First open Main.java and replace the 'API_KEY' variable with your open ai api key.
+
 To build the app, run the following command in the root directory of the project:
 ```
 mvn clean package
