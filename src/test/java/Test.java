@@ -32,21 +32,15 @@ public class Test {
         // Prompt promptObj = new Prompt();
         // promptObj.model = "gpt-3.5-turbo";
         // promptObj.max_tokens = Main.MAX_TOKENS;
-        // promptObj.messages = Main.readHistory();
+        List<Main.Message> messages = Main.readHistory();
 
-        // Main.writeHistory(promptObj.messages);
+        Main.writeHistory(messages);
 
 
         // String json = Main.Serializer.json(promptObj, true);
         // System.out.println(json);
 
 
-        String input = "This is a string with escaped quotes: \\\"Hello, World!\\\"";
-        System.out.println("Original: " + input);
-
-        // Replace escaped quotes with normal quotes
-        String output = input.replace("\\\"", "\"");
-        System.out.println("Processed: " + output);
 
     }
 }

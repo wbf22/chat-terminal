@@ -42,6 +42,8 @@ Sorry about the reverse nature of the chat.md. Not sure why I choose to append t
 
 Also you can edit your chat.md file in almost any way you want. So you can delete your history, edit it, or delete some of the most recent responses if you like.
 
+The history in the file is also all the history that is transmitted to the api each request. So you can see for yourself what history chat gpt has available when generating a response.
+
 Anyway, free to use commericially or otherwise. Enjoy!
 
 

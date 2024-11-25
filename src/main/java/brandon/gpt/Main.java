@@ -88,6 +88,7 @@ public class Main {
             do {
                 // get user input
                 Message msg = getInput(vimMode);
+                msg.content = "\n\n" + msg.content + "\n";
                 history.add(msg);
 
                 // make request to gpt
@@ -106,7 +107,7 @@ public class Main {
 
                 // print out in file
                 Message message = completion.choices.get(0).message;
-                message.content = "\n\n" + message.content + "\n\n";
+                message.content = "\n\n" + message.content + "\n\n\n";
                 history.add(message);
                 history = history.subList(Math.max(0, history.size() - HISTORY_LENGTH), history.size());
                 
@@ -207,7 +208,6 @@ public class Main {
             for (int i = history.size() - 1; i >= 0; i--) {
                 Message m = history.get(i);
                 writer.write(PROMPT_DIVIDER + m.role + "\n");
-                String quote = "" + '"';
                 String unescaped = m.content
                     .replace("\\n", "\n")
                     .replace("\\t", "\t")
