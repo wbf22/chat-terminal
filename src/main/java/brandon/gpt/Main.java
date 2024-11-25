@@ -21,6 +21,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -40,7 +42,7 @@ import java.util.Map.Entry;
 import brandon.gpt.Main.Serializer.ParamType;
 
 public class Main {
-
+    
     public static final String API_KEY = "";  // Replace with your actual OpenAI API key
 
     public static int MAX_TOKENS = 4096;
@@ -52,8 +54,15 @@ public class Main {
     public static final int HISTORY_LENGTH = 20;
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+
+
         boolean vimMode = args.length > 0 && args[0].equals("-vim");
+
+        if (!Files.exists(Path.of(FILE))) {
+            Files.createFile(Path.of(FILE));
+            if (!vimMode) return;
+        }
 
         RestClient<String> client = new RestClient<>(
             (json, type, objectMapper) -> { // deserializer
