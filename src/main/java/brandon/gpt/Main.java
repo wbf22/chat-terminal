@@ -239,12 +239,7 @@ public class Main {
 
         String role = line != null? line.replace(PROMPT_DIVIDER, "").trim() : null;
 
-        String contentString = content.toString()
-            .replace("\n", "\\n")
-            .replace("\t", "\\t")
-            .replace("\\\"", "\"");
-
-        return new Message(contentString, role);
+        return new Message(content.toString(), role);
     }
 
 
@@ -1278,6 +1273,14 @@ public class Main {
          * Escape quotes in strings
          */
         public static String escapeQuotes(String json) {
+
+            // escape quotes
+            json = json
+                .replace("\n", "\\n")
+                .replace("\t", "\\t")
+                .replace("\\\"", "\"");
+
+            // make sure quotes are escaped
             StringBuilder builder = new StringBuilder();
             for (int i = 0; i < json.length(); i++) {
                 char c = json.charAt(i);
@@ -1288,6 +1291,7 @@ public class Main {
                     builder.append(c);
                 }
             }
+
             return builder.toString();
         }
 
