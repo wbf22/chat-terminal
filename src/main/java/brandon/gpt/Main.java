@@ -944,7 +944,7 @@ public class Main {
         }
 
         private static void appendStringOrEnum(StringBuilder builder, Object value, boolean newLine) {
-            String valueString = escapeQuotes(
+            String valueString = escapeCharacters(
                 value.toString()
             );
             builder.append("\"").append(valueString).append("\"");
@@ -1272,7 +1272,7 @@ public class Main {
         /**
          * Escape quotes in strings
          */
-        public static String escapeQuotes(String json) {
+        public static String escapeCharacters(String json) {
 
             // escape quotes
             json = json
