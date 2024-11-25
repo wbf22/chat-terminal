@@ -44,28 +44,23 @@ public class Main {
     public static int MAX_TOKENS = 4096;
     public static String PROMPT_DIVIDER = "----------------------------------------";
     public static List<String> EXIT_COMMANDS = List.of("exit", "quit", "close");
-    public static String FILE = "chat.txt";
+    public static String FILE = "chat.md";
     public static String MODEL = "gpt-3.5-turbo";
     public static final String API_URL = "https://api.openai.com/v1/chat/completions";
     public static final String API_KEY = "";  // Replace with your actual OpenAI API key
     public static final int HISTORY_LENGTH = 20;
 
 
-    /*
-    curl -s https://api.openai.com/v1/chat/completions \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer " \
-    -d ""
-     */
-
     public static void main(String[] args) {
+        boolean vimMode = args.length > 0 && args[0].equals("-vim");
+
         RestClient<String> client = new RestClient<>(
             (json, type, objectMapper) -> { // deserializer
                 return Serializer.fromJson(json, Completion.class);
             },  
            (body, objectMapper) -> { // serializer
                 String s = Serializer.json(body, true);
-                System.out.println(s);
+                // System.out.println(s);
                 return s;
            }, 
            30000,  // timeout in milliseconds
@@ -80,9 +75,9 @@ public class Main {
         try {
             List<Message> history = readHistory();
 
-            while (true) {
-                // get user input in vim
-                Message msg = getInputInVim();
+            do {
+                // get user input
+                Message msg = getInput(vimMode);
                 history.add(msg);
 
                 // make request to gpt
@@ -107,7 +102,9 @@ public class Main {
                 
                 writeHistory(history);
                 history = readHistory();
-            }
+
+            } 
+            while (vimMode);
         }
         catch (GptExitException e) {
             System.out.println("Exiting...");
@@ -124,15 +121,17 @@ public class Main {
         }
     }
 
-    private static Message getInputInVim() throws FileNotFoundException, IOException, InterruptedException {
-        // Command to open Vim
-        ProcessBuilder processBuilder = new ProcessBuilder("vim", FILE);
-        processBuilder.inheritIO(); // Pass the terminal IO to Vim
-
-        // Start Vim and to exit
-        Process process = processBuilder.start();
-        process.waitFor();
-
+    private static Message getInput(boolean inVim) throws FileNotFoundException, IOException, InterruptedException {
+        
+        if (inVim) {
+            // Command to open Vim
+            ProcessBuilder processBuilder = new ProcessBuilder("vim", FILE);
+            processBuilder.inheritIO(); // Pass the terminal IO to Vim
+    
+            // Start Vim and to exit
+            Process process = processBuilder.start();
+            process.waitFor();
+        }
 
         // Read the file
         File file = new File(FILE);
@@ -140,7 +139,7 @@ public class Main {
 
         // Read lines in from user in vim
         try {
-            Message message = readMessage(reader, file, true);
+            Message message = readMessage(reader, file, inVim);
             message.role = Role.user.name();
             return message;
         }
@@ -198,7 +197,10 @@ public class Main {
             for (int i = history.size() - 1; i >= 0; i--) {
                 Message m = history.get(i);
                 writer.write(PROMPT_DIVIDER + m.role + "\n");
-                String unescaped = m.content.replace("\\n", "\n").replace("\\t", "\t");
+                String unescaped = m.content
+                    .replace("\\n", "\n")
+                    .replace("\\t", "\t")
+                    .replace("\\\"", "\"");
                 writer.write(unescaped);
             }
 
