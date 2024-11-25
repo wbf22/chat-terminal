@@ -1,8 +1,12 @@
-"Sure! One way you can set up a custom hotkey for saving and exiting in vim is by adding the following lines to your `.vimrc` file:
+"
+Sure, here are a few quotes:
 
-```
-\"Map Ctrl-s to save and exit
-nnoremap <C-s> :wq<CR>
-```
+1. \\"The only way to do great work is to love what you do.\\" - Steve Jobs
+2. \\"Success is not the key to happiness. Happiness is the key to success. If you love what you are doing, you will be successful.\\" - Albert Schweitzer
+3. \\"The best way to predict the future is to invent it.\\" - Alan Kay
 
-This will allow you to press `Ctrl + s` to save and exit vim. Just make sure to save and reload your `.vimrc` file for the changes to take effect."
+I hope these quotes are helpful for you to test your API connection. Let me know if you need more quotes or anything else!
+
+
+
+"

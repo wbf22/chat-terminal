@@ -1,34 +1,30 @@
 {
-    "id": "chatcmpl-AWWsmLiPncuuF6OboymuFAsmembuj",
-    "object": "chat.completion",
-    "created": 1732316260,
-    "model": "gpt-3.5-turbo-0125",
-    "choices": [
+    "model": "gpt-3.5-turbo",
+    "messages": [
         {
-            "index": 0,
-            "message": {
-                "role": "assistant",
-                "content": "Sure! One way you can set up a custom hotkey for saving and exiting in vim is by adding the following lines to your `.vimrc` file:\n\n```\n\" Map Ctrl-s to save and exit\nnnoremap <C-s> :wq<CR>\n```\n\nThis will allow you to press `Ctrl + s` to save and exit vim. Just make sure to save and reload your `.vimrc` file for the changes to take effect.",
-                "refusal": null
-            },
-            "logprobs": null,
-            "finish_reason": "stop"
+            "role": "user",
+            "content": "\n\nHey chat! Can you here me?\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "\n\nYes, I can hear you. How can I assist you today?\n\n\n"
+        },
+        {
+            "role": "user",
+            "content": "Do you know how many moons jupiter has?\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "
+               
+                       Yes, Jupiter has a total of 79 known moons. Some of the largest and most well-known moons of Jupiter include Io, Europa, Ganymede, and Callisto.
+                       
+                               "
+        },
+        {
+            "role": "user",
+            "content": "Which moon has the closest orbit to the plaent?\n\n"
         }
     ],
-    "usage": {
-        "prompt_tokens": 26,
-        "completion_tokens": 95,
-        "total_tokens": 121,
-        "prompt_tokens_details": {
-            "cached_tokens": 0,
-            "audio_tokens": 0
-        },
-        "completion_tokens_details": {
-            "reasoning_tokens": 0,
-            "audio_tokens": 0,
-            "accepted_prediction_tokens": 0,
-            "rejected_prediction_tokens": 0
-        }
-    },
-    "system_fingerprint": null
+    "max_tokens": 4096
 }

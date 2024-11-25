@@ -1,0 +1,74 @@
+{
+    "model": "gpt-3.5-turbo",
+    "messages": [
+        {
+            "role": "assistant",
+            "content": "\n\nYou're welcome! Let me know if you have any other questions or if there's anything else I can assist you with. Have a great day!\n\n\n\n\n\n"
+        },
+        {
+            "role": "user",
+            "content": "\n\nThanks!\n\n\n\n\n\n\n\n\n\n"
+        },
+        {
+            "role": "user",
+            "content": "\n\n\nOh cool\n\n\n\n\n\n\n\n\n\n\n\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "\n\n\nIs there anything in particular you find cool?\n\n\n\n\n\n\n\n\n\n\n\n"
+        },
+        {
+            "role": "user",
+            "content": "\n\n\nSorry I was testing my api connection with you. Didn't mean to send that\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "\n\n\nNo problem at all! Let me know if you need any help with testing or anything else.\n\n\n\n\n\n\n\n\n\n\n\n"
+        },
+        {
+            "role": "user",
+            "content": "\n\n\nCould you print out some quotes? I'm trying to test that currently\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "\n\n\nSure, here are a few quotes:\n\n1. \"The only way to do great work is to love what you do.\" - Steve Jobs\n2. \"Success is not the key to happiness. Happiness is the key to success. If you love what you are doing, you will be successful.\" - Albert Schweitzer\n3. \"The best way to predict the future is to invent it.\" - Alan Kay\n\nI hope these quotes are helpful for you to test your API connection. Let me know if you need more quotes or anything else!\n\n\n\n\n\n\n\n\n\n"
+        },
+        {
+            "role": "user",
+            "content": "\nnice\n\n\n\n\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "\nI'm glad you liked the quotes! If you have any other requests or need further assistance, feel free to ask. Have a great day!\n\n\n\n"
+        },
+        {
+            "role": "user",
+            "content": "Man quotes are pretty hard to deal with \"\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "I apologize if the quotes were not exactly what you were looking for. If you have specific preferences for the type of quotes you'd like to test with, let me know and I can provide different ones. Just give me some guidance on what you're looking for, and I'll do my best to help!"
+        },
+        {
+            "role": "user",
+            "content": "Oh no those were great! It helped me find another bug\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "I'm glad to hear that the quotes were helpful in identifying another bug! If you need any more assistance or have any other questions, feel free to reach out. I'm here to help. Good luck with your testing, and have a wonderful day!"
+        },
+        {
+            "role": "user",
+            "content": "Could you print out some more quote combinations to test my system?\n\n"
+        },
+        {
+            "role": "assistant",
+            "content": "Of course! Here are some more quotes for you to test your system:\n\n1. \\"Believe you can and you're halfway there.\\" - Theodore Roosevelt\n2. \\"The only limit to our realization of tomorrow will be our doubts of today.\\" - Franklin D. Roosevelt\n3. \\"It always seems impossible until it is done.\\" - Nelson Mandela\n\nFeel free to use these quotes to test your system. Let me know if you need more or if there's anything else I can assist you with!"
+        },
+        {
+            "role": "user",
+            "content": "Can you see this prompt?\n\n"
+        }
+    ],
+    "max_tokens": 4096
+}

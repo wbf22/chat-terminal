@@ -2,6 +2,7 @@ package brandon.gpt;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -28,6 +29,8 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,8 +54,8 @@ public class Main {
     /*
     curl -s https://api.openai.com/v1/chat/completions \
     -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $API_KEY" \
-    -d "$body"
+    -H "Authorization: Bearer " \
+    -d ""
      */
 
     public static void main(String[] args) {
@@ -61,7 +64,9 @@ public class Main {
                 return Serializer.fromJson(json, Completion.class);
             },  
            (body, objectMapper) -> { // serializer
-                return Serializer.json(body, true);
+                String s = Serializer.json(body, true);
+                System.out.println(s);
+                return s;
            }, 
            30000,  // timeout in milliseconds
            null
@@ -72,8 +77,8 @@ public class Main {
             "Authorization", "Bearer " + API_KEY
         );
 
-        List<Message> history = new ArrayList<>();
         try {
+            List<Message> history = readHistory();
 
             while (true) {
                 // get user input in vim
@@ -95,22 +100,13 @@ public class Main {
                 );
 
                 // print out in file
-                File file = new File(FILE);
-                FileWriter writer = new FileWriter(file, false);
                 Message message = completion.choices.get(0).message;
+                message.content = "\n\n" + message.content + "\n\n";
                 history.add(message);
-                
-                for (int i = history.size() - 1; i >= 0; i--) {
-                    Message m = history.get(i);
-                    writer.write("\n\n" + PROMPT_DIVIDER + m.role + "\n\n");
-                    String unescaped = m.content.replace("\\n", "\n").replace("\\t", "\t");
-                    writer.write(unescaped + "\n\n");
-                }
-                
-                writer.close();
-
                 history = history.subList(Math.max(0, history.size() - HISTORY_LENGTH), history.size());
                 
+                writeHistory(history);
+                history = readHistory();
             }
         }
         catch (GptExitException e) {
@@ -128,7 +124,7 @@ public class Main {
         }
     }
 
-    private static Message getInputInVim() throws IOException, InterruptedException {
+    private static Message getInputInVim() throws FileNotFoundException, IOException, InterruptedException {
         // Command to open Vim
         ProcessBuilder processBuilder = new ProcessBuilder("vim", FILE);
         processBuilder.inheritIO(); // Pass the terminal IO to Vim
@@ -143,6 +139,73 @@ public class Main {
         BufferedReader reader = new BufferedReader(new FileReader(file));
 
         // Read lines in from user in vim
+        try {
+            Message message = readMessage(reader, file, true);
+            message.role = Role.user.name();
+            return message;
+        }
+        catch(GptExitException e) {
+            throw e;
+        }
+        finally {
+            reader.close();
+        }
+    }
+
+    public static class GptExitException extends RuntimeException { }
+
+    public static List<Message> readHistory() throws FileNotFoundException, IOException{
+        List<Message> history = new ArrayList<>();
+
+        // Read the file
+        File file = new File(FILE);
+        BufferedReader reader = new BufferedReader(new FileReader(file));
+
+        // store in history 
+        String line;
+        while ((line = reader.readLine()) != null && !line.startsWith(PROMPT_DIVIDER) ) {}
+
+        // if empty return
+        if (line == null) {
+            reader.close();
+            return history;
+        }
+
+        // read each message into history
+        String thisRole = line.replace(PROMPT_DIVIDER, "").trim();
+        try {
+            while (reader.ready()) {
+                Message message = readMessage(reader, file, false);
+                String nextRole = message.role;
+                message.role = thisRole;
+                history.add(message);
+                thisRole = nextRole;
+            }
+        }
+        finally {
+            reader.close();
+        }
+
+        Collections.reverse(history);
+        return history;
+    }
+
+    public static void writeHistory(List<Message> history) throws IOException {
+        File file = new File(FILE);
+        try (FileWriter writer = new FileWriter(file, false)) {
+        
+            writer.write("\n\n");
+            for (int i = history.size() - 1; i >= 0; i--) {
+                Message m = history.get(i);
+                writer.write(PROMPT_DIVIDER + m.role + "\n");
+                String unescaped = m.content.replace("\\n", "\n").replace("\\t", "\t");
+                writer.write(unescaped);
+            }
+
+        }
+    }
+
+    public static Message readMessage(BufferedReader reader, File file, boolean triggerExit) throws IOException {
         String line;
         StringBuilder content = new StringBuilder();
         while ((line = reader.readLine()) != null && !line.startsWith(PROMPT_DIVIDER) ) {
@@ -150,7 +213,7 @@ public class Main {
             content.append(line).append("\n");
 
             // exit when user gives commands
-            if (EXIT_COMMANDS.contains(line.trim().toLowerCase())) {
+            if (triggerExit && EXIT_COMMANDS.contains(line.trim().toLowerCase())) {
                 reader.close();
 
                 String existing = Files.readString(file.toPath());
@@ -159,17 +222,16 @@ public class Main {
                 throw new GptExitException();
             }
         }
-        reader.close();
+
+        String role = line != null? line.replace(PROMPT_DIVIDER, "").trim() : null;
 
         String contentString = content.toString()
             .replace("\n", "\\n")
-            .replace("\t", "\\t");
+            .replace("\t", "\\t")
+            .replace("\\\"", "\"");
 
-        return new Message(contentString, Role.user.name());
+        return new Message(contentString, role);
     }
-
-    public static class GptExitException extends RuntimeException { }
-
 
 
 
@@ -757,7 +819,11 @@ public class Main {
                             throw new SerializerException("Double nested lists aren't supported for jsonMap conversion. Map key: " + entry.getKey(), null);
                         }
                         else if (o instanceof String || o.getClass().isEnum()) {
-                            stringBuilder.append("\"").append(o).append("\"");
+                            appendStringOrEnum(
+                                stringBuilder,
+                                o,
+                                false
+                            );
                         }
                         else {
                             stringBuilder.append(entry.getValue());
@@ -769,7 +835,11 @@ public class Main {
                 }
                 else {
                     if (entry.getValue() instanceof String || entry.getValue().getClass().isEnum()) {
-                        stringBuilder.append("\"").append(entry.getValue()).append("\"");
+                        appendStringOrEnum(
+                            stringBuilder,
+                            entry.getValue(),
+                            false
+                        );
                     }
                     else {
                         stringBuilder.append(entry.getValue());
@@ -829,7 +899,11 @@ public class Main {
                             throw new SerializerException("Double nested lists aren't supported for jsonMap conversion. Map key: " + entry.getKey(), null);
                         }
                         else if (o instanceof String || o.getClass().isEnum()) {
-                            builder.append("\"").append(o).append("\"").append(",\n");
+                            appendStringOrEnum(
+                                builder,
+                                o,
+                                true
+                            );
                         }
                         else {
                             builder.append(entry.getValue()).append(",\n");
@@ -841,10 +915,11 @@ public class Main {
                 else {
                     builder.append("    \"").append(entry.getKey()).append("\": ");
                     if (entry.getValue() instanceof String || entry.getValue().getClass().isEnum()) {
-                        String value = escapeQuotes(
-                            entry.getValue().toString()
+                        appendStringOrEnum(
+                            builder,
+                            entry.getValue(),
+                            true
                         );
-                        builder.append("\"").append(value).append("\"").append(",\n");
                     }
                     else {
                         builder.append(entry.getValue()).append(",\n");
@@ -857,6 +932,14 @@ public class Main {
             builder.append("}");
 
             return builder.toString();
+        }
+
+        private static void appendStringOrEnum(StringBuilder builder, Object value, boolean newLine) {
+            String valueString = escapeQuotes(
+                value.toString()
+            );
+            builder.append("\"").append(valueString).append("\"");
+            if (newLine) builder.append(",\n");
         }
         
         private static Map<String, Object> jsonStringToMap(String json) {
@@ -1130,18 +1213,16 @@ public class Main {
          */
         public static String removeWhitespaceFromJson(String json) {
             StringBuilder builder = new StringBuilder();
-            List<Character> chars = List.of(',', '\n', ':');
             boolean inString = false;
             for (int i = 0; i < json.length(); i++) {
                 char c = json.charAt(i);
                 if (c == '\"') {
                     if (inString) {
-                        if (i < json.length() - 1 && chars.contains(json.charAt(i+1))) {
+                        if (!isEscapedQuoteOrShouldBe(json, i)) {
                             inString = false;
                         }
                         else {
                             builder.append("\\\"");
-                            i++;
                             continue;
                         }
                     }
@@ -1157,6 +1238,26 @@ public class Main {
                 }
             }
             return builder.toString();
+        }
+
+        private static List<Character> whiteSpace = List.of(' ', '\n', '\t');
+        private static List<Character> quoteIndicators = List.of(',', '}', ']', ':');
+        public static boolean isEscapedQuoteOrShouldBe(String json, int index) {
+            if (json.charAt(index) == '\"') {
+                if (index > 0 && json.charAt(index-1) == '\\') {
+                    return true;
+                }
+                else {
+                    index++;
+                    char c = json.charAt(index);
+                    while (whiteSpace.contains(c)) {
+                        index++;
+                        c = json.charAt(index);
+                    }
+                    return !quoteIndicators.contains(c);
+                }
+            }
+            return false;
         }
 
         /**

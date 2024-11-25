@@ -5,59 +5,42 @@ import java.util.List;
 
 import brandon.gpt.Main;
 import brandon.gpt.Main.Choice;
+import brandon.gpt.Main.Prompt;
 
 public class Test {
 
     public static void main(String[] args) throws IOException {
 
-        String json = """
-        {
-            "message": {
-                "role": "assistant",
-                "content": "Sure! One way you can set up a custom hotkey for saving and exiting in vim is by adding the following lines to your `.vimrc` file:\n\n```\n\" Map Ctrl-s to save and exit\nnnoremap <C-s> :wq<CR>\n```\n\nThis will allow you to press `Ctrl + s` to save and exit vim. Just make sure to save and reload your `.vimrc` file for the changes to take effect.",
-                "refusal": null
-            }
-        }
-        """;
-        Main.Choice comp = Main.Serializer.fromJson(json, Main.Choice.class);
-        // System.out.println(comp.message.content);
-
-        String ser = Main.Serializer.json(comp, true);
-        System.out.println(ser);
-
-
-
-        // Files.writeString(Path.of("j.json"), json);
-        // Files.writeString(Path.of("j.json"), json.replaceAll("\"", "\\\""));
-
-        // StringBuilder builder = new StringBuilder();
-        // List<Character> chars = List.of(',', '\n', ':');
-        // boolean inString = false;
-        // for (int i = 0; i < json.length(); i++) {
-        //     char c = json.charAt(i);
-        //     if (c == '\"') {
-        //         if (inString) {
-        //             if (i < json.length() - 1 && chars.contains(json.charAt(i+1))) {
-        //                 inString = false;
-        //             }
-        //             else {
-        //                 builder.append("\\\"");
-        //                 i++;
-        //                 continue;
-        //             }
-        //         }
-        //         else inString = true;
-        //     }
-        //     if (c == ' ' || c == '\n' || c == '\t') {
-        //         if (inString) {
-        //             builder.append(c);
-        //         }
-        //     }
-        //     else {
-        //         builder.append(c);
+        // String json = """
+        // {
+        //     "message": {
+        //         "role": "assistant",
+        //         "content": "Sure! You can add the following lines to your .vimrc file to map a new hotkey for saving and exiting in vim:\n\n```\n\" Map <leader>s to save and exit\nnnoremap <Leader>s :wq<CR>\n```\n\nWith this mapping in place, you can use the \\s hotkey combination to save and exit vim. Just substitute '\\s' with any key you prefer. Let me know if you need further assistance.",
+        //         "refusal": null
         //     }
         // }
+        // """;
+        // Main.Choice comp = Main.Serializer.fromJson(json, Main.Choice.class);
 
-        // System.out.println(builder.toString());
+        // Main.Completion comp = Main.Serializer.fromJson(json, Main.Completion.class);
+        // // System.out.println(comp.message.content);
+
+        // String ser = Main.Serializer.json(comp, true);
+        // System.out.println(ser);
+
+
+        Prompt promptObj = new Prompt();
+        promptObj.model = "gpt-3.5-turbo";
+        promptObj.max_tokens = Main.MAX_TOKENS;
+        promptObj.messages = Main.readHistory();
+
+        Main.writeHistory(promptObj.messages);
+
+
+        String json = Main.Serializer.json(promptObj, true);
+        System.out.println(json);
+
+
+
     }
 }
