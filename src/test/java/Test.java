@@ -45,6 +45,7 @@ public class Test {
                 builder.append(c);
             }
         }
+        
 
         System.out.println(builder.toString());
     }
