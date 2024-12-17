@@ -471,15 +471,16 @@ public class Main {
 
 
 
+
     public static class Serializer {
 
         private Serializer() {}
-
-
+    
+    
         public static <T> String json(T object, boolean pretty) {
             if (object == null) return null;
             if (object instanceof String) return (String) object;
-
+    
             if (object instanceof List) {
                 List<?> list = (List<?>) object;
                 List<Map<String, Object>> newList = new ArrayList<>();
@@ -488,9 +489,9 @@ public class Main {
                 }
                 return convertListToJson(newList, pretty);
             }
-
+    
             Map<String, Object> mapObject = mapify(object);
-
+    
             if (pretty) {
                 return mapToPrettyJsonString(mapObject);
             }
@@ -498,12 +499,12 @@ public class Main {
                 return mapToJsonString(mapObject);
             }
         }
-
+    
         public static <T> T fromJson(String json, Type type) {
             // remove whitespace
             json = removeWhitespaceFromJson(json);
             Class<T> clazz = (Class<T>) typeToClassWildcard(type);
-
+    
             // if map or object
             if (json.charAt(0) == '{') {
                 Map<String, Object> map = jsonStringToMap(json);
@@ -520,23 +521,24 @@ public class Main {
             else if (json.charAt(0) == '[') {
                 // parse json into list of maps
                 List<Map<String, Object>> value = (List<Map<String, Object>>) getObjectFromString(json);
-
+    
                 // convert maps into objects
-                Class<?> listType = (Class<?>) ((ParameterizedType) type).getActualTypeArguments()[0];
+                Type listType = ((ParameterizedType) type).getActualTypeArguments()[0];
+                Class<?> listTypeClass = typeToClassWildcard(listType);
                 List<Object> newList = new ArrayList<>();
                 for (Map<String, Object> elem : value) {
-                    if (Map.class.isAssignableFrom(listType)) {
+                    if (Map.class.isAssignableFrom(listTypeClass)) {
                         newList.add(elem);
                     }
                     else {
                         Object converted = convertMapToObj(
-                            getDefault(listType),
+                            getDefault(listTypeClass),
                             elem
                         );
                         newList.add(converted);
                     }
                 }
-
+    
                 return safeCast(newList, clazz);
             }
             // if string
@@ -548,13 +550,13 @@ public class Main {
             }
             
         }
-
+    
         public static <T> T fromJson(String json, ParamType<T> type) {
             return fromJson(json, type.getType());
         }
-
-
-
+    
+    
+    
         private static String convertListToJson(List<Map<String, Object>> mapifiedList, boolean pretty) {
             StringBuilder stringBuilder = new StringBuilder("[");
             if (pretty) {
@@ -579,26 +581,26 @@ public class Main {
             
             stringBuilder.deleteCharAt(stringBuilder.length() - 2);
             stringBuilder.append("]");
-
+    
             return stringBuilder.toString();
         }
-
+    
         public static <T> T convertMapToObj(T object, Map<String, Object> map) {
-
+    
             Field[] fields = object.getClass().getFields();
-
+    
             for (Field field : fields) {
                 
                 try {
-
+    
                     if (map.containsKey(field.getName())) {
                         boolean originalAccessibility = field.canAccess(object);
                         field.setAccessible(true);
-
+    
                         Object value = map.get(field.getName());
                         Object convertedValue = convertObjectToType(value, field.getGenericType());
                         field.set(object, convertedValue);
-
+    
                         field.setAccessible(originalAccessibility);
                     }
                     
@@ -606,28 +608,28 @@ public class Main {
                     throw new SerializerException("Error trying to create a(n) '" + object.getClass().getName() + "' object", e);
                 } 
             }
-
+    
             return object;
         }
-
+    
         private static <T> T convertObjectToType(Object value, Type genericType) {
-
+    
             Class<T> type = (Class<T>) typeToClassWildcard(genericType);
-
+    
             // list type
             if (List.class.isAssignableFrom(type)) {
-
+    
                 // convert to a list
                 List<Object> list = new ArrayList<>();
                 List<?> resList = safeCast(value, List.class);
-
+    
                 // get the list type
                 Type listType = Object.class;
                 if (genericType instanceof ParameterizedType) {
                     ParameterizedType parameterizedType = (ParameterizedType) genericType;
                     listType = parameterizedType.getActualTypeArguments()[0];
                 }
-
+    
                 // iterate over the list and convert each object
                 for (Object o : resList) {
                     Object val = convertObjectToType(o, typeToClassWildcard(listType));
@@ -639,7 +641,7 @@ public class Main {
                 // convert to a map
                 Map<Object, Object> map = new LinkedHashMap<>(); // linked to maintain order
                 Map<?, ?> resMap = safeCast(value, Map.class);
-
+    
                 // get the map types
                 Type keyType = Object.class;
                 Type valueType = Object.class;
@@ -648,7 +650,7 @@ public class Main {
                     keyType = parameterizedType.getActualTypeArguments()[0];
                     valueType = parameterizedType.getActualTypeArguments()[1];
                 }
-
+    
                 // iterate over the map and convert each object
                 for (Entry<?, ?> entry : resMap.entrySet()) {
                     Object key = convertObjectToType(entry.getKey(), typeToClassWildcard(keyType));
@@ -663,12 +665,12 @@ public class Main {
                 if (notBigDecimal) {
                     value = new BigDecimal(value.toString());
                 }
-
+    
                 Object numberValue = convertBigDecimalToType(
                     safeCast(value, BigDecimal.class), 
                     type
                 );
-
+    
                 return (T) numberValue;
             }
             // date types
@@ -700,7 +702,7 @@ public class Main {
                 );
             }
         }
-
+    
         private static Class<?> typeToClassWildcard(Type type) {
             if (type instanceof Class<?> clazz) {
                 return clazz;
@@ -712,7 +714,7 @@ public class Main {
                 throw new SerializerException("Failed to convert type to class", null);
             }
         }
-
+    
         private static <T> T getDefault(Class<T> type) {
             try {
                 return type.getDeclaredConstructor().newInstance();
@@ -720,8 +722,8 @@ public class Main {
                 throw new SerializerException("Missing no args constructor for type " + type.getName(), e);
             }
         }
-
-
+    
+    
         /**
          * Converts an object to a map ommiting null fields
          * 
@@ -729,34 +731,42 @@ public class Main {
          * @return
          */
         public static <T> Map<String, Object> mapify(T object) {
-
+    
+            if (object == null) return null;
+            if (object instanceof Map objMap) {
+                Object key = objMap.keySet().stream().findAny().orElse(null);
+                if (key instanceof String) {
+                    return safeCastMap(objMap, String.class, Object.class);
+                }
+            } 
+    
             Map<String, Object> mappedResponse = new LinkedHashMap<>(); // linked to maintain order
             
             Class<?> objectType = object.getClass();
-
+    
             Field[] fields = objectType.getFields();
-
+    
             for (Field field : fields) {
                 
                 try {
                     // check for ignore tag
                     if (field.isAnnotationPresent(JsonIgnore.class)) continue;
-
+    
                     // get the original accessibility and set accessible during the method
                     boolean originalAccessibility = field.canAccess(object);
                     field.setAccessible(true);
-
-
+    
+    
                     if (field.get(object) != null) {
-
+    
                         Object value = null;
         
                         // check if the field is a list
                         if (List.class.isAssignableFrom(field.getType())) {
                             List<Object> list = new ArrayList<>();
-
+    
                             Object fieldResponse = field.get(object);
-
+    
                             List<?> resList = safeCast(fieldResponse, List.class);
                             for (Object o : resList) {
                                 Object val = (isBasicJavaType(o.getClass()) || o.getClass().isEnum())? o : mapify(o);
@@ -767,7 +777,7 @@ public class Main {
                         // check if the field is a map
                         else if (Map.class.isAssignableFrom(field.getType())) {
                             Map<Object, Object> map = new LinkedHashMap<>();
-
+    
                             Map<?, ?> resMap = safeCast(field.get(object), Map.class);
                             for (Entry<?, ?> entry : resMap.entrySet()) {
                                 Object key = entry.getKey();
@@ -775,7 +785,7 @@ public class Main {
                                 val = (isBasicJavaType(val.getClass()) || val.getClass().isEnum())? val : mapify(val);
                                 map.put(key, val);
                             }
-
+    
                             value = map;
                         }
                         // check if the field is a basic java type or enum
@@ -787,8 +797,8 @@ public class Main {
                             Object fieldResponse = field.get(object);
                             value = mapify(fieldResponse);
                         }
-
-
+    
+    
                         mappedResponse.put(field.getName(), value);
         
                     }
@@ -800,15 +810,15 @@ public class Main {
                     throw new SerializerException("Couldn't access field '" + field.getName() + "' in static class '" + objectType.getName() + "'", e);
                 } 
             }
-
+    
             return mappedResponse;
         }
-
+    
         private static String mapToJsonString(Map<String, Object> map) {
             StringBuilder stringBuilder = new StringBuilder("{ ");
-
+    
             for (Entry<String, Object> entry : map.entrySet()) {
-
+    
                 stringBuilder.append("\"").append(entry.getKey()).append("\" : ");
                 if (entry.getValue() instanceof Map) {
                     Map<String, Object> value = safeCast(entry.getValue(), Map.class);
@@ -854,30 +864,33 @@ public class Main {
                         stringBuilder.append(entry.getValue());
                     }
                 }
-
+    
                 stringBuilder.append(", ");
             }
-
+    
             stringBuilder.deleteCharAt(stringBuilder.length() - 2);
             stringBuilder.append("}");
-
+    
             return stringBuilder.toString();
         }
-
+    
         /**
          * Converts a map to a pretty json string
          */
         private static String mapToPrettyJsonString(Map<String, Object> map) {
             StringBuilder builder = new StringBuilder();
             builder.append("{\n");
-
+    
             for (Entry<String, Object> entry : map.entrySet()) {
-
-                if (entry.getValue() instanceof Map) {
+    
+                if (entry.getValue() == null) {
+                    builder.append("    \"").append(entry.getKey()).append("\": null,\n");
+                }
+                else if (entry.getValue() instanceof Map) {
                     builder.append("    \"").append(entry.getKey()).append("\": ");
                     String mapString = mapToPrettyJsonString((Map<String, Object>) entry.getValue());
                     String[] lines = mapString.split("\n");
-
+    
                     builder.append(lines[0]).append("\n");
                     String[] otherLines = Arrays.copyOfRange(lines, 1, lines.length);
                     for (String line : otherLines) {
@@ -885,7 +898,7 @@ public class Main {
                     }
                     builder.deleteCharAt(builder.length() - 1);
                     builder.append(",\n");
-
+    
                 } 
                 else if (entry.getValue() instanceof List) {
                     builder.append("    \"").append(entry.getKey()).append("\": ");
@@ -895,7 +908,7 @@ public class Main {
                         if (o instanceof Map) {
                             String mapString = mapToPrettyJsonString((Map<String, Object>) o);
                             String[] lines = mapString.split("\n");
-
+    
                             builder.append("        ").append(lines[0]).append("\n");
                             String[] otherLines = Arrays.copyOfRange(lines, 1, lines.length);
                             for (String line : otherLines) {
@@ -908,6 +921,7 @@ public class Main {
                             throw new SerializerException("Double nested lists aren't supported for jsonMap conversion. Map key: " + entry.getKey(), null);
                         }
                         else if (o instanceof String || o.getClass().isEnum()) {
+                            builder.append("    ").append("    ");
                             appendStringOrEnum(
                                 builder,
                                 o,
@@ -934,15 +948,16 @@ public class Main {
                         builder.append(entry.getValue()).append(",\n");
                     }
                 }
-
+    
             }
-
-            builder.deleteCharAt(builder.length() - 2);
+    
+            if (!map.isEmpty()) builder.deleteCharAt(builder.length() - 2);
+            else builder.deleteCharAt(builder.length() - 1);
             builder.append("}");
-
+    
             return builder.toString();
         }
-
+    
         private static void appendStringOrEnum(StringBuilder builder, Object value, boolean newLine) {
             String valueString = escapeCharacters(
                 value.toString()
@@ -952,25 +967,24 @@ public class Main {
         }
         
         private static Map<String, Object> jsonStringToMap(String json) {
-
+    
             // "{"ham":{"cheese":1,"list":[1,2,3]}}"
             // "ham":{"cheese":1,"list":[1,2,3]}
-
+    
             Map<String, Object> map = new LinkedHashMap<>(); // linked to maintain order
-
+    
             int i = 1;
             while (i < json.length()-1) {
-
+    
                 // get key
                 String key = "";
-                if (json.charAt(i) == '\"') {
-                    int j = i+1;
-                    while(json.charAt(j) != '\"') j++;
+                if (isNonEscapedQuote(json, i)) {
+                    int j = jumpToEndOfQuote(json, i+1);
                     
                     key = json.substring(i+1, j);
                     i = j+1;
                 }
-
+    
                 // get value
                 String valueString = "";
                 if (json.charAt(i) == ':') {
@@ -979,6 +993,9 @@ public class Main {
                         int openBrackets = 1;
                         while (openBrackets > 0) {
                             j++;
+                            if (isNonEscapedQuote(json, j)) {
+                                j = jumpToEndOfQuote(json, j);
+                            }
                             if (json.charAt(j) == '{') openBrackets++;
                             if (json.charAt(j) == '}') openBrackets--;
                         }
@@ -987,17 +1004,17 @@ public class Main {
                         int openBrackets = 1;
                         while (openBrackets > 0) {
                             j++;
+                            if (isNonEscapedQuote(json, j)) {
+                                j = jumpToEndOfQuote(json, j);
+                            }
                             if (json.charAt(j) == '[') openBrackets++;
                             if (json.charAt(j) == ']') openBrackets--;
                         }
                     }
-                    else if (json.charAt(j) == '\"') {
+                    else if (isNonEscapedQuote(json, j)) {
                         j++;
-                        while (json.charAt(j) != '\"')  {
+                        while (!isNonEscapedQuote(json, j))  {
                             j++;
-                            if ( json.charAt(j-1) == '\\' && json.charAt(j) == '\"') {
-                                j++;
-                            }
                         }
                     }
                     else {
@@ -1008,60 +1025,64 @@ public class Main {
                     i = j+1;
                 }
                 Object value = getObjectFromString(valueString);
-
+    
                 i++;
                 map.put(key, value);
             }
-
-
+    
+    
             return map;
         }
-
+    
         public static Object getObjectFromString(String valueString) {
             if (valueString.equals("null")) return null;
-
+    
             Object value;
             if (valueString.charAt(0) == '{') {
                 value = jsonStringToMap(valueString);
             }
             else if (valueString.charAt(0) == '[') {
-                // remove brackets
+                // remove outer brackets
                 valueString = valueString.substring(1, valueString.length()-1);
-
+    
                 // split by commas
                 List<String> values = new ArrayList<>();
                 int openBrackets = 0;
                 int j = 0;
                 for (int i = 0; i < valueString.length(); i++) {
-
+    
+                    if (isNonEscapedQuote(valueString, i)) i = jumpToEndOfQuote(valueString, i);
                     if (valueString.charAt(i) == '[' || valueString.charAt(i) == '{') openBrackets++;
                     if (valueString.charAt(i) == ']' || valueString.charAt(i) == '}') openBrackets--;
-
+    
                     if (valueString.charAt(i) == ',' && openBrackets == 0) {
                         values.add(valueString.substring(j, i));
                         j = i+1;
                     }
                 }
                 values.add(valueString.substring(j));
-
+    
                 // convert each value
                 List<Object> list = new ArrayList<>();
                 for (String val : values) {
                     list.add(getObjectFromString(val));
                 }
-
+    
                 value = list;
             }
-            else if (valueString.charAt(0) == '\"') {
+            else if (isNonEscapedQuote(valueString, 0)) {
                 value = valueString.substring(1, valueString.length()-1);
+            }
+            else if ("true".equals(valueString) || "false".equals(valueString)) {
+                value = Boolean.parseBoolean(valueString);
             }
             else {
                 value = new BigDecimal(valueString);
             }
-
+    
             return value;
         }
-
+    
         public static Object convertBigDecimalToType(BigDecimal number, Class<?> numberType) {
             if (numberType == int.class || numberType == Integer.class) {
                 return number.intValue();
@@ -1088,7 +1109,7 @@ public class Main {
                 throw new SerializerException("Can't convert BigDecimal to type " + numberType.getName(), null);
             }
         }
-
+    
         private static Object convertStringToDate(String dateString, Class<?> dateType) {
             try {
                 if (dateType == ZonedDateTime.class) {
@@ -1111,10 +1132,10 @@ public class Main {
                 throw new SerializerException("Failed to parse date string '" + dateString + "' to type " + dateType.getName(), e);
             }
         }
-
-
-
-
+    
+    
+    
+    
         /**
          * Determines if a type is one of the following:
          * - String
@@ -1126,20 +1147,20 @@ public class Main {
         private static boolean isBasicJavaType(Class<?> type) {
             return isNumericClass(type) || Temporal.class.isAssignableFrom(type) || type == String.class || isBoolean(type);
         }
-
+    
         private static boolean isBoolean(Class<?> type) {
             return type == Boolean.class || type == boolean.class;
         }
-
+    
         private static boolean isNumericClass(Class<?> type) {
             return Number.class.isAssignableFrom(type) || isPrimitiveNumericClass(type);
         }
-
+    
         private static boolean isPrimitiveNumericClass(Class<?> type) {
             return type == int.class || type == long.class || type == double.class
                     || type == float.class || type == short.class || type == byte.class;
         }
-
+    
         /**
          * Tries to cast the object to the desired type. Throwing an exception if not possible.
          *
@@ -1150,15 +1171,15 @@ public class Main {
          */
         private static <T> T safeCast(Object obj, Class<T> desiredType) {
             if (obj == null) return null;
-
+    
             if (desiredType.isInstance(obj)) {
                 return desiredType.cast(obj);
             }
             String message = "Failed trying to cast class " + obj.getClass().getName() + " to " + desiredType.getName();
             throw new SerializerException(message, null);
         }
-
-
+    
+    
         /**
          * Tries to cast the map to the desired type. Throwing an exception if not possible.
          *
@@ -1171,7 +1192,7 @@ public class Main {
          */
         public static <T, S> Map<T,S> safeCastMap(Object obj, Class<T> keyType, Class<S> valueType) {
             try {
-                Map<T, S> newMap = new HashMap<>();
+                Map<T, S> newMap = new LinkedHashMap<>();
                 for(Object entry : safeCast(obj, Map.class).entrySet()) {
                     if (entry instanceof Map.Entry<?, ?> newEntry) {
                         newMap.put(
@@ -1187,7 +1208,7 @@ public class Main {
                 throw new SerializerException(message, null);
             }
         }
-
+    
         /**
          * Tries to cast the list to the desired type. Throwing an exception if not possible.
          *
@@ -1213,9 +1234,9 @@ public class Main {
                     + " to list of " + type.getName();
                 throw new SerializerException(message, e);
             }
-
+    
         }
-
+    
         /**
          * Removes \n\t and whitespace anywhere in the json other than in strings.
          * Cleans up spare quotes in strings.
@@ -1248,7 +1269,11 @@ public class Main {
             }
             return builder.toString();
         }
-
+    
+        public static boolean isNonEscapedQuote(String json, int index) {
+            return json.charAt(index) == '\"' && (index == 0 || json.charAt(index-1) != '\\');
+        }
+    
         private static List<Character> whiteSpace = List.of(' ', '\n', '\t');
         private static List<Character> quoteIndicators = List.of(',', '}', ']', ':');
         public static boolean isEscapedQuoteOrShouldBe(String json, int index) {
@@ -1268,18 +1293,27 @@ public class Main {
             }
             return false;
         }
-
+    
+        public static int jumpToEndOfQuote(String json, int index) {
+            index++;
+            while (!isNonEscapedQuote(json, index)) {
+                index++;
+            }
+            return index;
+        }
+    
+    
         /**
          * Escape quotes in strings
          */
         public static String escapeCharacters(String json) {
-
+    
             // escape quotes
             json = json
                 .replace("\n", "\\n")
                 .replace("\t", "\\t")
                 .replace("\\\"", "\"");
-
+    
             // make sure quotes are escaped
             StringBuilder builder = new StringBuilder();
             for (int i = 0; i < json.length(); i++) {
@@ -1291,10 +1325,10 @@ public class Main {
                     builder.append(c);
                 }
             }
-
+    
             return builder.toString();
         }
-
+    
         /**
          * Annotation that can be used to ignore fields when serializing to json.
          * 
@@ -1305,16 +1339,16 @@ public class Main {
         @Target({ElementType.FIELD})
         public static @interface JsonIgnore {}
         
-
+    
         public static class SerializerException extends RuntimeException {
             public SerializerException(String message, Throwable cause) {
                 super(message, cause);
             }
         }
-
+    
         public abstract static class ParamType<T> {
             private final Type type;
-
+    
             protected ParamType() {
                 Type superClass = getClass().getGenericSuperclass();
                 if (superClass instanceof ParameterizedType) {
@@ -1323,14 +1357,14 @@ public class Main {
                     throw new IllegalArgumentException("TypeReference must be parameterized");
                 }
             }
-
+    
             public Type getType() {
                 return this.type;
             }
-
+    
         }
     }
-
+    
 
     // DTOS
     // [
