@@ -38,14 +38,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.Set;
 
 import brandon.gpt.Main.Serializer.ParamType;
 
 public class Main {
     
-    public static final String API_KEY = "";  // Replace with your actual OpenAI API key
+    public static String API_KEY = "";  // Replace with your actual OpenAI API key
 
     public static int MAX_TOKENS = 4096;
+    public static double TEMPERATURE = 0.7;
     public static String PROMPT_DIVIDER = "----------------------------------------";
     public static List<String> EXIT_COMMANDS = List.of("exit", "quit", "close");
     public static String FILE = "chat.md";
@@ -56,12 +62,36 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
 
+        // parse options
+        Set<String> options = Stream.of(args).collect(Collectors.toSet());
 
-        boolean vimMode = args.length > 0 && args[0].equals("-vim");
+        boolean terminalMode = options.contains("-terminal");
 
-        if (!Files.exists(Path.of(FILE))) {
+        Optional<String> apiKey = options.stream().filter(s -> s.startsWith("key=")).findFirst();
+        if (apiKey.isPresent()) {
+            API_KEY = apiKey.get().replace("key=", "");
+        }
+
+        Optional<String> numTokens = options.stream().filter(s -> s.startsWith("tokens=")).findFirst();
+        if (numTokens.isPresent()) {
+            MAX_TOKENS = Integer.parseInt(numTokens.get().replace("tokens=", ""));
+        }
+
+        Optional<String> temperature = options.stream().filter(s -> s.startsWith("temperature=")).findFirst();
+        if (temperature.isPresent()) {
+            TEMPERATURE = Double.parseDouble(temperature.get().replace("temperature=", ""));
+        }
+
+        Optional<String> model = options.stream().filter(s -> s.startsWith("model=")).findFirst();
+        if (model.isPresent()) {
+            MODEL = model.get().replace("model=", "");
+        }
+
+
+        // create chat.md file if needed
+        if (!terminalMode && !Files.exists(Path.of(FILE))) {
             Files.createFile(Path.of(FILE));
-            if (!vimMode) return;
+            return;
         }
 
         RestClient<String> client = new RestClient<>(
@@ -83,11 +113,30 @@ public class Main {
         );
 
         try {
-            List<Message> history = readHistory();
+            List<Message> history = new ArrayList<>();
+            if (!terminalMode) {
+                history = readHistory();
+            }
 
             do {
                 // get user input
-                Message msg = getInput(vimMode);
+                Message msg = new Message();
+                if (!terminalMode) {
+                    msg = getInputFromFile();
+                }
+                else {
+                    System.out.print(AnsiControl.color(57, 109, 14) + "You: " + AnsiControl.RESET); // rgb(57, 109, 14)
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+                    msg.content = reader.readLine();
+                    msg.role = Role.user.name();
+
+                    if (EXIT_COMMANDS.contains(msg.content.toLowerCase())) {
+                        System.out.println("Have a nice day ya nut!");
+                        return;
+                    }
+
+                    System.out.println();
+                }
                 msg.content = "\n\n" + msg.content + "\n";
                 history.add(msg);
 
@@ -111,11 +160,19 @@ public class Main {
                 history.add(message);
                 history = history.subList(Math.max(0, history.size() - HISTORY_LENGTH), history.size());
                 
-                writeHistory(history);
-                history = readHistory();
+                if (!terminalMode) {
+                    writeHistory(history);
+                    history = readHistory();
+                }
+                else {
+                    System.out.println();
+                    System.out.println(
+                        AnsiControl.color(57, 109, 14) + "GPT: " + AnsiControl.RESET + unescapeMessage(message.content)
+                    );
+                }
 
             } 
-            while (vimMode);
+            while (terminalMode);
         }
         catch (GptExitException e) {
             System.out.println("Exiting...");
@@ -132,25 +189,15 @@ public class Main {
         }
     }
 
-    private static Message getInput(boolean inVim) throws FileNotFoundException, IOException, InterruptedException {
+    private static Message getInputFromFile() throws FileNotFoundException, IOException, InterruptedException {
         
-        if (inVim) {
-            // Command to open Vim
-            ProcessBuilder processBuilder = new ProcessBuilder("vim", FILE);
-            processBuilder.inheritIO(); // Pass the terminal IO to Vim
-    
-            // Start Vim and to exit
-            Process process = processBuilder.start();
-            process.waitFor();
-        }
-
         // Read the file
         File file = new File(FILE);
         BufferedReader reader = new BufferedReader(new FileReader(file));
 
         // Read lines in from user in vim
         try {
-            Message message = readMessage(reader, file, inVim);
+            Message message = readMessage(reader, file);
             message.role = Role.user.name();
             return message;
         }
@@ -185,7 +232,7 @@ public class Main {
         String thisRole = line.replace(PROMPT_DIVIDER, "").trim();
         try {
             while (reader.ready()) {
-                Message message = readMessage(reader, file, false);
+                Message message = readMessage(reader, file);
                 String nextRole = message.role;
                 message.role = thisRole;
                 history.add(message);
@@ -208,33 +255,28 @@ public class Main {
             for (int i = history.size() - 1; i >= 0; i--) {
                 Message m = history.get(i);
                 writer.write(PROMPT_DIVIDER + m.role + "\n");
-                String unescaped = m.content
-                    .replace("\\n", "\n")
-                    .replace("\\t", "\t")
-                    .replace("\\\\\"", "\"")
-                    .replace("\\\"", "\"");
+                String unescaped = unescapeMessage(m.content);
                 writer.write(unescaped);
             }
 
         }
     }
 
-    public static Message readMessage(BufferedReader reader, File file, boolean triggerExit) throws IOException {
+    public static String unescapeMessage(String message) {
+        return message
+            .replace("\\n", "\n")
+            .replace("\\t", "\t")
+            .replace("\\\\\"", "\"")
+            .replace("\\\"", "\"");
+    }
+
+    public static Message readMessage(BufferedReader reader, File file) throws IOException {
         String line;
         StringBuilder content = new StringBuilder();
         while ((line = reader.readLine()) != null && !line.startsWith(PROMPT_DIVIDER) ) {
             
             content.append(line).append("\n");
 
-            // exit when user gives commands
-            if (triggerExit && EXIT_COMMANDS.contains(line.trim().toLowerCase())) {
-                reader.close();
-
-                String existing = Files.readString(file.toPath());
-                String newDiv = "\n\n" + PROMPT_DIVIDER + Role.user.name() + "\n\n";
-                Files.writeString(file.toPath(), newDiv + existing);
-                throw new GptExitException();
-            }
         }
 
         String role = line != null? line.replace(PROMPT_DIVIDER, "").trim() : null;
@@ -468,9 +510,6 @@ public class Main {
         }
 
     }
-
-
-
 
     public static class Serializer {
 
@@ -1365,6 +1404,53 @@ public class Main {
         }
     }
     
+    public enum AnsiControl {
+
+        
+        RESET("\u001B[0m"),
+        CLEAR_SREEN("\u001B[2J\u001B[H"),
+        RESET_FONT_SIZE("\u001B[0m"),
+        SIZE("\u001B[=18h"),
+        SET_FONT_SIZE("\u001B[");
+
+        
+        // public static String CLEAR_SREEN = "\u001B[2J\u001B[H";
+        // public static String RESET_FONT_SIZE = "\u001B[0m";
+        // public static String SET_FONT_SIZE = "\u001B[";
+
+
+        private final String code;
+        AnsiControl(String code) {
+            this.code = code;
+        }
+
+
+        public static void setCursor(int x, int y) {
+            System.out.print("\u001B[" + y + ";" + x + "H");
+        }
+
+        public static String color(int r, int g, int b) {
+            return "\u001B[38;2;" + r + ";" + g + ";" + b + "m";
+        }
+
+        public static String color(int x) {
+            return "\u001B[38;5;" + x + "m";
+        }
+
+        public static String background(int r, int g, int b) {
+            return "\u001B[48;2;" + r + ";" + g + ";" + b + "m";
+        }
+
+        public static String background(int x) {
+            return "\u001B[48;5;" + x + "m";
+        }
+
+
+        @Override
+        public String toString() {
+            return code;
+        }
+    }
 
     // DTOS
     // [
@@ -1377,6 +1463,7 @@ public class Main {
         public String model;
         public List<Message> messages;
         public int max_tokens = 100;
+        public double temperature = 0.7f;
 
     }
     public enum Role {

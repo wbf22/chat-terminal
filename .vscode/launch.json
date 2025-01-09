@@ -13,10 +13,20 @@
         },
         {
             "type": "java",
-            "name": "Main",
+            "name": "chat.md",
             "request": "launch",
             "mainClass": "brandon.gpt.Main",
             "projectName": "chat"
+        },
+        {
+            "type": "java",
+            "name": "chat in terminal",
+            "request": "launch",
+            "mainClass": "brandon.gpt.Main",
+            "projectName": "chat",
+            "args": [
+                "-terminal"
+            ]
         }
     ]
 }
