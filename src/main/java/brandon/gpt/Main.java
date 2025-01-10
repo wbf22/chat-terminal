@@ -130,10 +130,20 @@ public class Main {
                     msg.content = reader.readLine();
                     msg.role = Role.user.name();
 
-                    if (EXIT_COMMANDS.contains(msg.content.toLowerCase())) {
+                    String possibleCmd = msg.content.toLowerCase();
+                    if (EXIT_COMMANDS.contains(possibleCmd)) {
                         System.out.println("Have a nice day ya nut!");
                         return;
                     }
+                    else if (possibleCmd.startsWith("dump")) {
+                        if (!Files.exists(Path.of(FILE))) {
+                            Files.createFile(Path.of(FILE));
+                        }
+                        writeHistory(history);
+                        System.out.println("Dumped, ya nut!");
+                        return;
+                    }
+
 
                     System.out.println();
                 }
