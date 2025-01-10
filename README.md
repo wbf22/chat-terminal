@@ -1,6 +1,6 @@
 # chat-terminal
 ```
-Usage: chat [OPTION]...
+USAGE: chat [OPTION]...
 Sends prompts to the OpenAi api and displays responses. Maintains a conversation history and allows fine user control of the api
 parameters.
 
@@ -9,6 +9,9 @@ Works in two main modes, file based mode, and terminal mode.
 Terminal Mode
 - Classic mode where user prompts are entered into the terminal and then submitted by hitting 'enter'. 
 - Api responses are then displayed
+- The prompt will loop until the user submits 'quit', 'exit', or 'close'.
+- The user can enter 'dump' to dump the chat history into a 'chat.md' file in the current directory. This 
+file will be ready to use in file mode
 
 File mode
 - Mode useful for editing prompts to the api in a text editor. Useful for editing code blocks to be sent to the api. 
@@ -40,10 +43,10 @@ Options (order does not matter):
 
 Exmaples:
 
-    We provide a jar file. You can run the jar file with `java -jar target/chat-1.0.jar' or make an alias like this:
-    `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar'`. You might also make an alias 
+    We provide a jar file. You can run the jar file with `java -jar chat-1.0.jar' or make an alias like this:
+    `alias chat='java -jar /home/brandon/Documents/chat-terminal/chat-1.0.jar'`. You might also make an alias 
     like this to avoid having to submit your api-key each time you run the command: 
-    `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar -k sk-proj-...'`
+    `alias chat='java -jar /home/brandon/Documents/chat-terminal/chat-1.0.jar -k sk-proj-...'`
     
     I'll do the examples below with the first alias though.
 
@@ -53,7 +56,7 @@ Exmaples:
     All options in file mode (order does not matter):
         `chat -k sk-proj-... -f -m gpt-3.5-turbo -t 1024 -T 1.2`
 
-                        
+                
 
 ```
 

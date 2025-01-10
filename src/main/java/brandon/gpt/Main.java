@@ -91,7 +91,7 @@ public class Main {
             else if (arg.equals("-?") || arg.equals("--help")) {
                 System.out.println(
                     """
-                    Usage: chat [OPTION]...
+                    USAGE: chat [OPTION]...
                     Sends prompts to the OpenAi api and displays responses. Maintains a conversation history and allows fine user control of the api
                     parameters.
                     
@@ -100,6 +100,9 @@ public class Main {
                     Terminal Mode
                     - Classic mode where user prompts are entered into the terminal and then submitted by hitting 'enter'. 
                     - Api responses are then displayed
+                    - The prompt will loop until the user submits 'quit', 'exit', or 'close'.
+                    - The user can enter 'dump' to dump the chat history into a 'chat.md' file in the current directory. This 
+                    file will be ready to use in file mode
 
                     File mode
                     - Mode useful for editing prompts to the api in a text editor. Useful for editing code blocks to be sent to the api. 
@@ -144,7 +147,7 @@ public class Main {
                         All options in file mode (order does not matter):
                             `chat -k sk-proj-... -f -m gpt-3.5-turbo -t 1024 -T 1.2`
 
-                        
+                    
 
 
                     """
