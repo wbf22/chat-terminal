@@ -27,6 +27,20 @@
             "args": [
                 "-terminal"
             ]
+        },
+        {
+            "type": "java",
+            "name": "Args Test",
+            "request": "launch",
+            "mainClass": "brandon.gpt.Main",
+            "projectName": "chat",
+            "args": [
+                "-t",
+                "4096",
+                "-p",
+                "1.2",
+
+            ]
         }
     ]
 }

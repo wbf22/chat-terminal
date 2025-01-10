@@ -1,15 +1,61 @@
 # chat-terminal
-A terminal app for talking with chat gpt. 
+```
+Usage: chat [OPTION]...
+Sends prompts to the OpenAi api and displays responses. Maintains a conversation history and allows fine user control of the api
+parameters.
 
-There are two modes:
+Works in two main modes, file based mode, and terminal mode.
 
-1. Default (java -jar {path to root dir}/chat-1.0.jar):
- - Running the app looks for the 'chat.md' file in the current directory and uses it as the chat history. It will then send that to the open ai chat gpt api and get a response, saving it back to the 'chat.md' file.
+Terminal Mode
+- Classic mode where user prompts are entered into the terminal and then submitted by hitting 'enter'. 
+- Api responses are then displayed
+
+File mode
+- Mode useful for editing prompts to the api in a text editor. Useful for editing code blocks to be sent to the api. 
+- In this mode a 'chat.md' file is created in the current directory. Api responses and user prompts are displayed from most
+recent to oldest seperated by dividers. 
+- Past responses or prompts can be edited in this mode allowing control of the history. Each time a request is made in this mode,
+the history is refreshed from the contents of the 'chat.md' file. 
+- Each time the user wants to submit the most recent prompt in the file, they should run the 'chat -f' command again to send the 
+prompt to the api.
 
 
-2. Vim (java -jar {path to root dir}/chat-1.0.jar -vim):
- - Runs in a loop, opening the 'chat.md' file in vim, waiting for the user to save and exit, hitting the api and rewriting the file, then opening the file in vim again.
+Options (order does not matter):
+    -f, --file-mode                         Activates file mode explained above
+    -?, --help                              Prints this dialog
+    -k, --api-key=sk-proj-...               Sets the open-api key to be used in requests.
+                                            If you wish to not specify this everytime, we
+                                            reccomend either making an alias or inserting 
+                                            your api key in the Main.java file in the 
+                                            repository and building the jar with `mvn package`
+    -m, --model=...                         The model name param sent to the api. The 
+                                            default is 'gpt-3.5-turbo'. 
+    -t, --tokens=...                        Sets the max tokens param sent to the api. 
+                                            Defaults to 4096.
+    -T, --temperature=...                   Sets the temperature param sent to the api.
+                                            For tasks where you want more accurate answers
+                                            This should be a value < 0.5. For more creative
+                                            answers this can be more, even 1.0+.
 
+
+Exmaples:
+
+    We provide a jar file. You can run the jar file with `java -jar target/chat-1.0.jar' or make an alias like this:
+    `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar'`. You might also make an alias 
+    like this to avoid having to submit your api-key each time you run the command: 
+    `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar -k sk-proj-...'`
+    
+    I'll do the examples below with the first alias though.
+
+    Basic:
+        `chat -k sk-proj-...`
+
+    All options in file mode (order does not matter):
+        `chat -k sk-proj-... -f -m gpt-3.5-turbo -t 1024 -T 1.2`
+
+                        
+
+```
 
 # Building
 First open Main.java and replace the 'API_KEY' variable with your open ai api key.
@@ -29,7 +75,7 @@ I personally prefer the default mode. I use vscode as my editor and I have a key
     "key": "cmd+g",
     "command": "workbench.action.terminal.sendSequence",
     "args": {
-        "text": "java -jar ~/Documents/chat/target/chat-1.0.jar\u000D"
+        "text": "java -jar ~/Documents/chat/target/chat-1.0.jar -f\u000D"
     }
 }
 ```

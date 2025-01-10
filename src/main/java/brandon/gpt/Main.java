@@ -22,7 +22,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -31,27 +30,18 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.Set;
-
-import brandon.gpt.Main.Serializer.ParamType;
 
 public class Main {
     
     public static String API_KEY = "";  // Replace with your actual OpenAI API key
 
     public static int MAX_TOKENS = 4096;
-    public static double TEMPERATURE = 0.7;
+    public static double TEMPERATURE = 0.5;
     public static String PROMPT_DIVIDER = "----------------------------------------";
     public static List<String> EXIT_COMMANDS = List.of("exit", "quit", "close");
     public static String FILE = "chat.md";
@@ -63,28 +53,106 @@ public class Main {
     public static void main(String[] args) throws IOException {
 
         // parse options
-        Set<String> options = Stream.of(args).collect(Collectors.toSet());
+        boolean terminalMode = true;
 
-        boolean terminalMode = options.contains("-terminal");
+        for (int i = 0; i < args.length; i++) {
 
-        Optional<String> apiKey = options.stream().filter(s -> s.startsWith("key=")).findFirst();
-        if (apiKey.isPresent()) {
-            API_KEY = apiKey.get().replace("key=", "");
-        }
+            String arg = args[i];
+            if (arg.equals("-f") || arg.equals("--file-mode")) 
+                terminalMode = false;
+            else if (arg.equals("-k")) {
+                API_KEY = args[i+1];
+                i++;
+            }
+            else if (arg.startsWith("--api-key="))
+                API_KEY = arg.replace("--api-key=", "");
+            else if (arg.equals("-t")) {
+                MAX_TOKENS = Integer.parseInt(args[i+1]);
+                i++;
+            }
+            else if (arg.startsWith("--tokens="))
+                MAX_TOKENS = Integer.parseInt(
+                    arg.replace("--tokens=", "")
+                );
+            else if (arg.equals("-T")) {
+                TEMPERATURE = Double.parseDouble(args[i+1]);
+                i++;
+            }
+            else if (arg.startsWith("--temperature="))
+                TEMPERATURE = Double.parseDouble(
+                    arg.replace("--temperature=", "")
+                );
+            else if (arg.equals("-m")) {
+                MODEL = args[i+1];
+                i++;
+            }
+            else if (arg.startsWith("--model="))
+                MODEL = arg.replace("--model=", "");
+            else if (arg.equals("-?") || arg.equals("--help")) {
+                System.out.println(
+                    """
+                    Usage: chat [OPTION]...
+                    Sends prompts to the OpenAi api and displays responses. Maintains a conversation history and allows fine user control of the api
+                    parameters.
+                    
+                    Works in two main modes, file based mode, and terminal mode.
 
-        Optional<String> numTokens = options.stream().filter(s -> s.startsWith("tokens=")).findFirst();
-        if (numTokens.isPresent()) {
-            MAX_TOKENS = Integer.parseInt(numTokens.get().replace("tokens=", ""));
-        }
+                    Terminal Mode
+                    - Classic mode where user prompts are entered into the terminal and then submitted by hitting 'enter'. 
+                    - Api responses are then displayed
 
-        Optional<String> temperature = options.stream().filter(s -> s.startsWith("temperature=")).findFirst();
-        if (temperature.isPresent()) {
-            TEMPERATURE = Double.parseDouble(temperature.get().replace("temperature=", ""));
-        }
+                    File mode
+                    - Mode useful for editing prompts to the api in a text editor. Useful for editing code blocks to be sent to the api. 
+                    - In this mode a 'chat.md' file is created in the current directory. Api responses and user prompts are displayed from most
+                    recent to oldest seperated by dividers. 
+                    - Past responses or prompts can be edited in this mode allowing control of the history. Each time a request is made in this mode,
+                    the history is refreshed from the contents of the 'chat.md' file. 
+                    - Each time the user wants to submit the most recent prompt in the file, they should run the 'chat -f' command again to send the 
+                    prompt to the api.
 
-        Optional<String> model = options.stream().filter(s -> s.startsWith("model=")).findFirst();
-        if (model.isPresent()) {
-            MODEL = model.get().replace("model=", "");
+
+                    Options (order does not matter):
+                        -f, --file-mode                         Activates file mode explained above
+                        -?, --help                              Prints this dialog
+                        -k, --api-key=sk-proj-...               Sets the open-api key to be used in requests.
+                                                                If you wish to not specify this everytime, we
+                                                                reccomend either making an alias or inserting 
+                                                                your api key in the Main.java file in the 
+                                                                repository and building the jar with `mvn package`
+                        -m, --model=...                         The model name param sent to the api. The 
+                                                                default is 'gpt-3.5-turbo'. 
+                        -t, --tokens=...                        Sets the max tokens param sent to the api. 
+                                                                Defaults to 4096.
+                        -T, --temperature=...                   Sets the temperature param sent to the api.
+                                                                For tasks where you want more accurate answers
+                                                                This should be a value < 0.5. For more creative
+                                                                answers this can be more, even 1.0+.
+
+
+                    Exmaples:
+
+                        We provide a jar file. You can run the jar file with `java -jar target/chat-1.0.jar' or make an alias like this:
+                        `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar'`. You might also make an alias 
+                        like this to avoid having to submit your api-key each time you run the command: 
+                        `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar -k sk-proj-...'`
+                        
+                        I'll do the examples below with the first alias though.
+
+                        Basic:
+                            `chat -k sk-proj-...`
+
+                        All options in file mode (order does not matter):
+                            `chat -k sk-proj-... -f -m gpt-3.5-turbo -t 1024 -T 1.2`
+
+                        
+
+
+                    """
+                
+                );
+                return;
+            }
+
         }
 
 
