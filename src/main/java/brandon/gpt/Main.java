@@ -18,6 +18,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -466,7 +467,9 @@ public class Main {
             return makeRequest(url, "DELETE", headers, body, responseClass);
         }
 
-        
+        // javac -Xlint:unchecked src/main/java/brandon/gpt/Main.java
+        // javac -Xlint:deprecation src/main/java/brandon/gpt/Main.java
+        // javac -Xlint:unchecked -Xlint:deprecation src/main/java/brandon/gpt/Main.java
         public <T, B> T makeRequest(String url, String method, Map<String, String> headers, B body, Type responseClass) {
             
             HttpURLConnection conn = null;
@@ -474,7 +477,7 @@ public class Main {
             int statusCode = 0;
             try {
                 // set up connection
-                URL urlSpec = new URL(url);
+                URL urlSpec = new URI(url).toURL();
                 conn = (HttpURLConnection) urlSpec.openConnection();
                 conn.setRequestMethod(method);
                 conn.setReadTimeout(timeout);

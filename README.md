@@ -61,14 +61,24 @@ Exmaples:
 ```
 
 # Building
-First open Main.java and replace the 'API_KEY' variable with your open ai api key.
+I actually use a little utility I created to build the jar file which isn't included in the project. If you'd like to build the jar file you'll have to do
+it with these commands in the root of the project:
 
-To build the app, run the following command in the root directory of the project:
 ```
-mvn clean package
+mkdir bin
+javac -d bin ./src/main/java/brandon/gpt/Main.java
+jar cvf chat-rebuild.jar -C ./bin .
+rm -rf bin
 ```
 
-You'll need mvn and Java 17 installed
+That should make you a jar if you have java installed. 
+
+Otherwise you can just run the jar in this repo like so:
+```
+java -jar /path/to/project/chat-terminal/chat-1.0.jar -k <your-api-key>
+```
+
+The 'make-jar.sh' is what I use to build the project with my little utility. I hope to publish that utility soon, but it's not included in the project.
 
 
 # Usage
