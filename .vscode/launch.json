@@ -16,7 +16,11 @@
             "name": "chat.md",
             "request": "launch",
             "mainClass": "brandon.gpt.Main",
-            "projectName": "chat"
+            "projectName": "chat",
+            "args": [
+                "-f",
+                "--api-key="
+            ]
         },
         {
             "type": "java",
@@ -25,7 +29,7 @@
             "mainClass": "brandon.gpt.Main",
             "projectName": "chat",
             "args": [
-                "-terminal"
+                "--api-key="
             ]
         },
         {

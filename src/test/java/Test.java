@@ -11,36 +11,51 @@ public class Test {
 
     public static void main(String[] args) throws IOException {
 
-        // String json = """
-        // {
-        //     "message": {
-        //         "role": "assistant",
-        //         "content": "Sure! You can add the following lines to your .vimrc file to map a new hotkey for saving and exiting in vim:\n\n```\n\" Map <leader>s to save and exit\nnnoremap <Leader>s :wq<CR>\n```\n\nWith this mapping in place, you can use the \\s hotkey combination to save and exit vim. Just substitute '\\s' with any key you prefer. Let me know if you need further assistance.",
-        //         "refusal": null
-        //     }
-        // }
-        // """;
-        // Main.Choice comp = Main.Serializer.fromJson(json, Main.Choice.class);
+        String json = """
+        {
+            "id": "chatcmpl-BAGqxd4kQj5HuGHLgheJheO6lrpyc",
+            "object": "chat.completion",
+            "created": 1741787763,
+            "model": "gpt-3.5-turbo-0125",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "Hello! How can I assist you today?",
+                        "refusal": null,
+                        "annotations": []
+                    },
+                    "logprobs": null,
+                    "finish_reason": "stop"
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 10,
+                "total_tokens": 20,
+                "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "audio_tokens": 0
+                },
+                "completion_tokens_details": {
+                    "reasoning_tokens": 0,
+                    "audio_tokens": 0,
+                    "accepted_prediction_tokens": 0,
+                    "rejected_prediction_tokens": 0
+                }
+            },
+            "service_tier": "default",
+            "system_fingerprint": null
+        }
+        """;
+        Main.Completion comp = Main.Serializer.fromJson(json, Main.Completion.class);
 
-        // Main.Completion comp = Main.Serializer.fromJson(json, Main.Completion.class);
-        // // System.out.println(comp.message.content);
-
-        // String ser = Main.Serializer.json(comp, true);
-        // System.out.println(ser);
+        String ser = Main.Serializer.json(comp, true);
+        System.out.println(ser);
 
 
-        // Prompt promptObj = new Prompt();
-        // promptObj.model = "gpt-3.5-turbo";
-        // promptObj.max_tokens = Main.MAX_TOKENS;
-        List<Main.Message> messages = Main.readHistory();
-
-        Main.writeHistory(messages);
-
-
-        // String json = Main.Serializer.json(promptObj, true);
-        // System.out.println(json);
-
-
+        // "{"id":"chatcmpl-BAGqxd4kQj5HuGHLgheJheO6lrpyc","object":"chat.completion","created":1741787763,"model":"gpt-3.5-turbo-0125","choices":[{"index":0,"message":{"role":"assistant","content":"Hello! How can I assist you today?","refusal":null,"annotations":[]},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20,"prompt_tokens_details":{"cached_tokens":0,"audio_tokens":0},"completion_tokens_details":{"reasoning_tokens":0,"audio_tokens":0,"accepted_prediction_tokens":0,"rejected_prediction_tokens":0}},"service_tier":"default","system_fingerprint":null}"
 
     }
 }
