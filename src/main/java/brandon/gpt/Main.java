@@ -46,7 +46,7 @@ public class Main {
     public static String PROMPT_DIVIDER = "----------------------------------------";
     public static List<String> EXIT_COMMANDS = List.of("exit", "quit", "close");
     public static String FILE = "chat.md";
-    public static String MODEL = "gpt-3.5-turbo";
+    public static String MODEL = "gpt-4o-mini";
     public static final String API_URL = "https://api.openai.com/v1/chat/completions";
     public static final int HISTORY_LENGTH = 20;
 
