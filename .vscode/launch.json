@@ -6,6 +6,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Main$TerminalTextEditor",
+            "request": "launch",
+            "mainClass": "brandon.gpt.Main$TerminalTextEditor",
+            "projectName": "chat-terminal_af68a5d7"
+        },
+        {
+            "type": "java",
             "name": "Test",
             "request": "launch",
             "mainClass": "Test",
@@ -42,8 +49,7 @@
                 "-t",
                 "4096",
                 "-p",
-                "1.2",
-
+                "1.2"
             ]
         }
     ]
