@@ -6,11 +6,17 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Main$TerminalTextEditor",
+            "name": "TerminalTextEditor Linux",
             "request": "launch",
             "mainClass": "brandon.gpt.Main$TerminalTextEditor",
-            "projectName": "chat-terminal_af68a5d7",
-            // "console": "externalTerminal"
+            "projectName": "chat-terminal_a724d630"
+        },
+        {
+            "type": "java",
+            "name": "TerminalTextEditor Mac",
+            "request": "launch",
+            "mainClass": "brandon.gpt.Main$TerminalTextEditor",
+            "projectName": "chat-terminal_af68a5d7"
         },
         {
             "type": "java",
