@@ -415,6 +415,9 @@ public class Main {
                     // 27 10 is 'alt enter' on linux. Could be a good way to quit
                     // 23 is 'ctrl backspace' on linux.
                     // 27 100 is 'ctrl delete' on linux
+                    // 21 is 'ctrl delete' on mac.
+                    // 27 10 is 'option enter' on mac.
+                    // 226 136 134 is 'option j' on mac.
                     if ((ch == 21)) {
                         TerminalTextEditor.reset(); // reset cursor
                         // Ctrl + Enter (Linux: 10 then 13, Windows: just 10)
