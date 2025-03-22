@@ -9,7 +9,8 @@
             "name": "Main$TerminalTextEditor",
             "request": "launch",
             "mainClass": "brandon.gpt.Main$TerminalTextEditor",
-            "projectName": "chat-terminal_af68a5d7"
+            "projectName": "chat-terminal_af68a5d7",
+            // "console": "externalTerminal"
         },
         {
             "type": "java",

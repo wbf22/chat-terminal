@@ -366,30 +366,32 @@ public class Main {
     public static class TerminalTextEditor {
 
         int cursorPosition = 0;
-        int currentLine = 0;
+        int cursorLine = 0;
+        int bufferPosition = 0;
+        int numLines = 1;
         StringBuilder textBuffer = new StringBuilder();
-        List<StringBuilder> lines = new ArrayList<>(List.of(textBuffer));
         boolean ijklCursorMode = false;
 
         public void run() throws IOException {
-            TerminalTextEditor.reset();
-            Console console = System.console();
-            if (console == null) {
-                System.out.println("No console available. Run in a terminal.");
-                return;
+
+
+            try {
+                // new ProcessBuilder("sh", "-c", "stty raw -echo </dev/tty").inheritIO().start().waitFor();
+                new ProcessBuilder("sh", "-c", "stty -icanon min 1 -echo </dev/tty").inheritIO().start().waitFor();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
-
-
-            
-            // Enable raw mode
-            String[] command = {"/bin/sh", "-c", "stty raw -echo < /dev/tty"};
-            Runtime.getRuntime().exec(command);
 
 
             // Input Loop
             try {
-                InputStream in = System.in;
                 System.out.println("Start typing (Ctrl + Delete/Backspace to finish):");
+
+                InputStream in = System.in;
+
+                // save cursor
+                System.out.print("\033[s");
+
                 while (true) {
                     int ch = in.read();
 
@@ -410,17 +412,15 @@ public class Main {
                         if (in.read() == 91) { // '['
                             int arrow = in.read();
                             if (arrow == 68) { // Left arrow
-                                if (this.cursorPosition > 0) {
-                                    this.cursorLeft();
-                                }
+                                this.moveLeft();
                             } else if (arrow == 67) { // Right arrow
-                                this.cursorRight();
+                                this.moveRight();
                             }
                             else if (arrow == 65) { // up arrow
-                                this.cursorUp();
+                                this.moveUp();
                             }
                             else if (arrow == 66) { // down arrow
-                                this.cursorDown();
+                                this.moveDown();
                             }
                         }
                         continue;
@@ -442,10 +442,10 @@ public class Main {
                         // ijkl cursor movements
                         if (ijklCursorMode) {
                             switch (ch) {
-                                case 105 -> cursorUp();
-                                case 107 -> cursorDown();
-                                case 106 -> cursorLeft();
-                                case 108 -> cursorRight();
+                                case 105 -> moveUp();
+                                case 107 -> moveDown();
+                                case 106 -> moveLeft();
+                                case 108 -> moveRight();
                             };
                         }
                         else {
@@ -460,7 +460,7 @@ public class Main {
 
                     // new lines
                     if (isNewLineChar((char) ch)) {
-                        this.newLine((char) ch);
+                        printChar('\n');
                     }
                 }
             } finally {
@@ -471,149 +471,165 @@ public class Main {
         }
 
         private void printChar(char ch) {
-            if (this.cursorPosition < this.textBuffer.length()) {
-                this.textBuffer.setCharAt(this.cursorPosition, (char) ch);
+            if (this.bufferPosition < this.textBuffer.length()) {
+                this.textBuffer.setCharAt(this.bufferPosition, (char) ch);
             }
             else {
-                this.textBuffer.insert(this.cursorPosition, (char) ch);
+                this.textBuffer.insert(this.bufferPosition, (char) ch);
             }
-            this.cursorPosition++;
-            System.out.print((char) ch);
+            this.bufferPosition++;
+
+            if (isNewLineChar(ch)) {
+                this.cursorPosition = 0;
+                this.cursorLine++;
+            }
+            else {
+                this.cursorPosition++;
+            }
+            reprint();
         }
 
         private void delete() {
-            if (this.cursorPosition > 0) {
-                this.textBuffer.deleteCharAt(--this.cursorPosition);
-                System.out.print("\b \b"); // Remove character visually
-            }
-            else if (this.currentLine != 0) {
-                TerminalTextEditor.clearTerminalLinesAfterCursor(this.lines.size() - this.currentLine);
-
-            }
-        }
-
-        private void moveToLineEnd() {
-            while (this.cursorPosition < this.textBuffer.length()) this.cursorRight();
-        }
-
-        private void newLine(char newLineChar) {
-
-            // handle enter mid line
-            String movingPortion = "";
-            if (this.cursorPosition != this.textBuffer.length()) {
-                int enterPosition = this.cursorPosition;
-                movingPortion = this.textBuffer.substring(this.cursorPosition);
-                moveToLineEnd();
-                while (this.cursorPosition != enterPosition) this.delete();
-            }
-            
-            // print new line
-            this.textBuffer.insert(this.cursorPosition, newLineChar);
-
-            // increment counters
-            this.currentLine++;
-            this.textBuffer = new StringBuilder();
-            
-            // add line and move lines down if not the last line
-            boolean wasLastLine = this.currentLine == this.lines.size() - 1;
-            while (this.cursorPosition != 0) {
-                this.cursorLeft();
-            }
-            if (wasLastLine) {
-                this.lines.add(this.textBuffer);
-            }
-            else {
-
-                this.lines.add(this.currentLine, this.textBuffer);
-
-                // if wasn't last line reprint all the last lines
-                System.out.print("\033[B");
-
-            }
-
-            // set cursor to beginning of line
-            TerminalTextEditor.reset();
-            while (this.cursorPosition != 0) {
-                this.cursorLeft();
-            }
-
-            // if enter was hit mid line put second half on new line
-            for (int i = 0; i < movingPortion.length(); i++) {
-                this.printChar(movingPortion.charAt(i));
-            }
-
-
-        }
-
-        private static void reset() {
-            System.out.print("\u001B[0m");
-            System.out.println("\033[1G");
-        }
-
-        private static void clearTerminalLinesAfterCursor(int numLines) {
-            System.out.print("\033[B");
-            for (int i = 0; i < numLines; i++) {
-                System.out.print("\033[2K");
-            }
-        }
-
-        private static void clearRestOfTerminalLineAfterCursor() {
-            System.out.print("\033[K");
-        }
-
-
-        private void cursorLeft() {
-            this.cursorPosition--;
-            System.out.print("\033[D"); // Move cursor left
+            this.textBuffer.delete(bufferPosition, bufferPosition + 1);
+            reprint();
         }
 
         private boolean isNewLineChar(char ch) {
             return ch == '\n' || ch == '\r';
         }
 
-        private void cursorRight() {
-            if (this.cursorPosition < textBuffer.length()) {
-                char currentCh = textBuffer.charAt(this.cursorPosition);
-                if (!isNewLineChar(currentCh)) {
-                    System.out.print(currentCh);
-                    this.cursorPosition++;
-                }
-            }
+        private static void reset() {
+            System.out.print("\u001B[0m");
+            System.out.println("\033[1G");
         }
+        
+        private void moveLeft() {
+            
+            // handle begining of line
+            if (this.cursorPosition == 0) {
+                if (this.cursorLine != 0) {
+                    this.bufferPosition -= 2; // skip new line char
+                    this.cursorLine--;
 
-        private void cursorUp() {
-            if (this.currentLine != 0) {
-                this.currentLine --;
-                this.textBuffer = this.lines.get(this.currentLine);
-                System.out.print("\033[A");
-            }
-        }
+                    // determine new cursor position
+                    int i = this.bufferPosition;
+                    while(i > 0 && this.textBuffer.charAt(i) != '\n') {
+                        i--;
+                    }
+                    this.cursorPosition = this.bufferPosition - i;
+                    TerminalTextEditor.cursorUp(1);
+                    TerminalTextEditor.cursorRight(this.cursorPosition);
 
-        private void cursorDown() {
-            if (this.currentLine == this.lines.size() - 1) {
-
-                // go to end of line and print new line
-                while(this.cursorPosition < textBuffer.length()) cursorRight();
-                // printChar('\n');
-
-                StringBuilder lastLine = this.textBuffer;
-                this.newLine('\n');
-                
-                // add needed whitespace to new line
-                for (int i = 0; i < lastLine.length(); i++) {
-                    int c = lastLine.charAt(i);
-                    if (c == 32 || c == 9)
-                        printChar((char) c);
-                    else 
-                        break;
                 }
             }
             else {
-                this.currentLine++;
-                this.textBuffer = this.lines.get(this.currentLine);
-                System.out.print("\033[B");
-                while (this.cursorPosition > this.textBuffer.length()) cursorLeft();
+                this.cursorPosition--;
+                this.bufferPosition--;
+                TerminalTextEditor.cursorLeft(1);
             }
+        }
+
+        private void moveRight() {
+            System.out.print("\033[C");
+            this.cursorPosition++;
+            // if (this.cursorPosition < textBuffer.length()) {
+            //     char currentCh = textBuffer.charAt(this.cursorPosition);
+            //     if (!isNewLineChar(currentCh)) {
+            //         System.out.print(currentCh);
+            //         this.cursorPosition++;
+            //     }
+            // }
+        }
+
+        private void moveUp() {
+            // if (this.currentLine != 0) {
+            //     this.currentLine --;
+            //     this.textBuffer = this.lines.get(this.currentLine);
+            //     System.out.print("\033[A");
+            // }
+        }
+
+        private void moveDown() {
+            System.out.print("\033[B");
+            this.cursorLine++;
+            // if (this.currentLine == this.lines.size() - 1) {
+
+            //     // go to end of line and print new line
+            //     while(this.cursorPosition < textBuffer.length()) cursorRight();
+            //     // printChar('\n');
+
+            //     StringBuilder lastLine = this.textBuffer;
+            //     this.newLine('\n');
+                
+            //     // add needed whitespace to new line
+            //     for (int i = 0; i < lastLine.length(); i++) {
+            //         int c = lastLine.charAt(i);
+            //         if (c == 32 || c == 9)
+            //             printChar((char) c);
+            //         else 
+            //             break;
+            //     }
+            // }
+            // else {
+            //     this.currentLine++;
+            //     this.textBuffer = this.lines.get(this.currentLine);
+            //     System.out.print("\033[B");
+            //     while (this.cursorPosition > this.textBuffer.length()) cursorLeft();
+            // }
+        }
+
+        private static void cursorUp(int lines) {
+            if (lines > 0)
+                System.out.print("\033[" + lines + "A");
+        }
+
+        private static void cursorDown(int lines) {
+            if (lines > 0)
+                System.out.print("\033[" + lines + "B");
+        }
+
+        private static void cursorRight(int characters) {
+            if (characters > 0)
+                System.out.print("\033[" + characters + "C");
+        }
+
+        private static void cursorLeft(int characters) {
+            if (characters > 0)
+                System.out.print("\033[" + characters + "D");
+        }
+
+        private void reprint() {
+
+            // reset cursor to original position
+            System.out.print("\033[u");
+
+            // delete all lines
+            for (int i = 0; i < this.numLines; i++) {
+                System.out.print("\033[2K");
+            }
+
+            // reprint
+            System.out.print(this.textBuffer);
+            this.numLines = TerminalTextEditor.countLines(textBuffer);
+
+            // set cursor to current position
+            System.out.print("\033[u");
+            int lines_to_shift = this.numLines - 1;
+            TerminalTextEditor.cursorDown(lines_to_shift);
+            TerminalTextEditor.cursorRight(this.cursorPosition);
+            
+        }
+
+
+        private static int countLines(StringBuilder builder) {
+            int lines = 1;
+            for (int i = 0; i < builder.length(); i++) {
+                if (builder.charAt(i) == '\n' || builder.charAt(i) == '\r') {
+                    lines++;
+                }
+            }
+
+            return lines;
         }
 
         public static void main(String[] args) throws IOException {
