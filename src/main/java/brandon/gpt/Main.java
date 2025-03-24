@@ -365,8 +365,6 @@ public class Main {
 
     public static class TerminalTextEditor {
 
-        int cursorPosition = 0;
-        int cursorLine = 0;
         int bufferPosition = 0;
         int numLines = 1;
         StringBuilder textBuffer = new StringBuilder();
@@ -397,7 +395,7 @@ public class Main {
 
             // Input Loop
             try {
-                System.out.println("Start typing (Ctrl + Delete/Backspace to finish):");
+                System.out.println("Start typing ('alt/option + enter' to finish):");
 
                 InputStream in = System.in;
 
@@ -418,12 +416,7 @@ public class Main {
                     // 21 is 'ctrl delete' on mac.
                     // 27 10 is 'option enter' on mac.
                     // 226 136 134 is 'option j' on mac.
-                    if ((ch == 21)) {
-                        TerminalTextEditor.reset(); // reset cursor
-                        // Ctrl + Enter (Linux: 10 then 13, Windows: just 10)
-                        System.out.println("\nFinal Text: " + textBuffer);
-                        break;
-                    }
+                    // 27 106 is 'alt j' on linux
 
                     // Escape sequence for arrow keys
                     if (ch == 27 && System.in.available() > 0) { 
@@ -439,6 +432,12 @@ public class Main {
                             }
                             else if (arrow == 66) { // down arrow
                                 this.moveDown();
+                            }
+                            else if (arrow == 10) { // alt/option enter
+                                TerminalTextEditor.reset(); // reset cursor
+                                // Ctrl + Enter (Linux: 10 then 13, Windows: just 10)
+                                System.out.println("\nFinal Text: " + textBuffer);
+                                break;
                             }
                         }
                         continue;
@@ -481,7 +480,41 @@ public class Main {
 
                     // new lines
                     if (isNewLineChar((char) ch)) {
-                        printChar('\n');
+                        // if in a copy paste basically
+                        if (in.available() > 0) {
+                            printChar('\n');
+                        }
+                        // other wise adjust next line to tab of current line
+                        else {
+                            printChar('\n');
+                            int count = 0;
+                            int pos = this.bufferPosition;
+                            pos -= 2;
+                            if (pos > 0) {
+                                // get to start of line
+                                char c = this.textBuffer.charAt(pos);
+                                while (!isNewLineChar(c) && pos > 0) {
+                                    pos--;
+                                    c = this.textBuffer.charAt(pos);
+                                }
+                                if (isNewLineChar(c)) {
+                                    pos++;
+                                    c = this.textBuffer.charAt(pos);
+                                }
+
+                                // count how many spaces
+                                while (c == ' ') {
+                                    pos++;
+                                    count++;
+                                    c = this.textBuffer.charAt(pos);
+                                }
+                            }
+                            
+                            for (int i = 0; i < count; i++) {
+                                printChar(' ');
+                            }
+                        }
+
                     }
                 }
             } finally {
@@ -495,20 +528,15 @@ public class Main {
             this.textBuffer.insert(this.bufferPosition, (char) ch);
             this.bufferPosition++;
 
-            if (isNewLineChar(ch)) {
-                this.cursorPosition = 0;
-                this.cursorLine++;
-                
-            }
-            else {
-                this.cursorPosition++;
-            }
             reprint();
         }
 
         private void delete() {
-            this.textBuffer.delete(bufferPosition, bufferPosition + 1);
-            reprint();
+            if (this.bufferPosition != 0) {
+                this.textBuffer.delete(bufferPosition - 1, bufferPosition);
+                this.bufferPosition--;
+                reprint();
+            }
         }
 
         private boolean isNewLineChar(char ch) {
@@ -523,105 +551,79 @@ public class Main {
         private void moveLeft() {
             
             // handle begining of line
-            if (this.cursorPosition == 0) {
-                if (this.cursorLine != 0) {
-                    this.bufferPosition -= 2; // skip new line char
-                    this.cursorLine--;
-
-                    // determine new cursor position
-                    int i = this.bufferPosition;
-                    while(i > 0 && this.textBuffer.charAt(i) != '\n') {
-                        i--;
-                    }
-                    this.cursorPosition = this.bufferPosition - i;
-                    TerminalTextEditor.cursorUp(1);
-                    TerminalTextEditor.cursorRight(this.cursorPosition);
-
-                }
-            }
-            else {
-                this.cursorPosition--;
+            if (this.bufferPosition != 0 && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition - 1))) {
                 this.bufferPosition--;
-                TerminalTextEditor.cursorLeft(1);
+                this.reprint();
             }
         }
 
         private void moveRight() {
 
-            if (this.bufferPosition == this.textBuffer.length() || isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) {
-                this.printChar(' ');
-            }
-            else {
-                TerminalTextEditor.cursorRight(1);
-                this.cursorPosition++;
+            if (this.bufferPosition != this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) {
                 this.bufferPosition++;
             }
-            // if (this.cursorPosition < textBuffer.length()) {
-            //     char currentCh = textBuffer.charAt(this.cursorPosition);
-            //     if (!isNewLineChar(currentCh)) {
-            //         System.out.print(currentCh);
-            //         this.cursorPosition++;
-            //     }
-            // }
+            this.reprint();
         }
 
         private void moveUp() {
-            if (this.cursorLine != 0) {
-                cursorUp(1);
-                this.cursorLine--;
-            
-                this.bufferPositionToPreviousLine();
-                this.bufferPositionToPreviousLine();
-                if (this.bufferPosition > 0) this.bufferPosition += 1;
-                
-                matchCursorToLineEndIfNeeded();
 
+            // determine distance from line start
+            int newBuf = this.bufferPosition - 1;
+            while (newBuf > 0 && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf--;
+            int startToPos = this.bufferPosition - newBuf - 1;
+
+            if (newBuf > 0) {
+
+                // move to next line
+                newBuf--;
+
+                // move to the beginning of the line
+                while (newBuf > 0 && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf--;
+                if (isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf++;
+
+                // move to the same index or end of new line
+                this.bufferPosition = newBuf;
+                int newLinePos = newBuf + startToPos;
+                while (this.bufferPosition < this.textBuffer.length() && this.bufferPosition < newLinePos && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) this.bufferPosition++;
+                
             }
+            else {
+                this.bufferPosition = 0;
+            }
+            this.reprint();
         }
 
         private void moveDown() {
-            cursorDown(1);
-            this.cursorLine++;
 
-            if (this.cursorLine == this.numLines) {
-                this.textBuffer.append("\n");
-                this.bufferPosition++;
-                cursorLeft(this.cursorPosition);
-                this.cursorPosition = 0;
-                this.reprint();
+            // determine if we're on the last line
+            boolean isLastLine = true;
+            int i = this.bufferPosition;
+            while (i < this.textBuffer.length() && isLastLine) {
+                if (isNewLineChar(this.textBuffer.charAt(i))) isLastLine = false;
+                i++;
             }
-            else {
-                // move to the end of the other line if cursor is past the end
-                bufferPositionToNextLine();
-                matchCursorToLineEndIfNeeded();
+
+
+            if (!isLastLine) {
+
+                // determine start of current line
+                int newBuf = this.bufferPosition - 1;
+                while (newBuf >= 0 && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf--;
+                int startToPos = this.bufferPosition - newBuf - 1;
+
+                // move to next line
+                newBuf++;
+                while (newBuf < this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf++;
+
+                // move to same index or end of new line
+                this.bufferPosition = newBuf + 1;
+                int newLinePos = this.bufferPosition + startToPos;
+                while (this.bufferPosition < this.textBuffer.length() && this.bufferPosition < newLinePos && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) this.bufferPosition++;
                 
+                this.reprint();
             }
 
             
-        }
-
-        /*
-         * Assumes bufferPosition is currently at the start of the line, and cursor position is on the same line
-         * but after the end of the text
-         */
-        private void matchCursorToLineEndIfNeeded() {
-            int startOfLine = this.bufferPosition;
-            int endOfLine = startOfLine;
-            while (endOfLine < this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(endOfLine))) {
-                endOfLine++;
-            }
-            int lineLength = endOfLine - startOfLine;
-
-            // if the next line is long enough for the cursor to be in it just move the buffer to the right spot
-            if (this.cursorPosition < lineLength) {
-                this.bufferPosition += this.cursorPosition;
-            }
-            // otherwise move cursor to end of line
-            else {
-                this.bufferPosition += lineLength;
-                TerminalTextEditor.cursorLeft(this.cursorPosition - lineLength);
-                this.cursorPosition = lineLength;
-            }
         }
 
         private static void cursorUp(int lines) {
@@ -644,32 +646,9 @@ public class Main {
                 System.out.print("\033[" + characters + "D");
         }
 
-        private void bufferPositionToNextLine() {
-            if (this.bufferPosition >= this.textBuffer.length()) return;
-
-            char c = this.textBuffer.charAt(this.bufferPosition);
-            while (!isNewLineChar(c) && this.bufferPosition < this.textBuffer.length()) {
-                c = this.textBuffer.charAt(this.bufferPosition);
-                this.bufferPosition++;
-            }
-
-            if (this.bufferPosition < this.textBuffer.length()) this.bufferPosition++;
-        }
-
-        private void bufferPositionToPreviousLine() {
-            if (this.bufferPosition == 0) return;
-
-            this.bufferPosition--;
-
-            char c = this.textBuffer.charAt(this.bufferPosition);
-            while (!isNewLineChar(c) && this.bufferPosition > 0) {
-                this.bufferPosition--;
-                c = this.textBuffer.charAt(this.bufferPosition);
-            }
-
-        }
-
         private void reprint() {
+            // XXX when buffer is larger than the screen we need to keep track of how far it is to the top.
+            // since reseting the cursor only puts the cursor at the top current view
 
             // reset cursor to original position
             System.out.print("\033[u");
@@ -689,13 +668,27 @@ public class Main {
 
             // set cursor to current position
             System.out.print("\033[u");
-            TerminalTextEditor.cursorDown(this.cursorLine);
-            TerminalTextEditor.cursorRight(this.cursorPosition);
+            int cursorPos = 0;
+            int lines = 0;
+            int lineToCursor = 0;
+            while (cursorPos < this.bufferPosition) {
+                if (cursorPos < this.textBuffer.length() && isNewLineChar(this.textBuffer.charAt(cursorPos))) {
+                    lineToCursor = 0;
+                    lines++;
+                }
+                else {
+                    lineToCursor++;
+                }
+                cursorPos++;
+            }
+            TerminalTextEditor.cursorDown(lines);
+            TerminalTextEditor.cursorRight(lineToCursor);
+
             
         }
 
         private static int countLines(StringBuilder builder) {
-            int lines = 1;
+            int lines = 0;
             for (int i = 0; i < builder.length(); i++) {
                 if (builder.charAt(i) == '\n' || builder.charAt(i) == '\r') {
                     lines++;
@@ -706,8 +699,8 @@ public class Main {
         }
 
         public static void main(String[] args) throws IOException {
-            // new TerminalTextEditor().run();
-            new TerminalTextEditor().testChars();
+            new TerminalTextEditor().run();
+            // new TerminalTextEditor().testChars();
         }
 
         public void testChars() throws IOException {
