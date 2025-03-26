@@ -365,19 +365,20 @@ public class Main {
 
     public static class TerminalTextEditor {
 
-        int bufferPosition = 0;
-        int numLines = 1;
-        StringBuilder textBuffer = new StringBuilder();
-        boolean ijklCursorMode = false;
+        private int bufferPosition = 0;
+        private StringBuilder textBuffer = new StringBuilder();
+        private boolean ijklCursorMode = false;
+        public OutputColorer colorer = new DefaultColorer();
+        public int terminalHeight;
+        public int terminalWidth;
+        
 
-        public void run() throws IOException {
+        private int windowStartLine = 0;
+        private int windowStartIndex = 0;
 
-            try {
-                // new ProcessBuilder("sh", "-c", "stty raw -echo </dev/tty").inheritIO().start().waitFor();
-                new ProcessBuilder("sh", "-c", "stty -icanon min 1 -echo </dev/tty").inheritIO().start().waitFor();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        // int startPosition = 
+        public void run(String initialInput) throws IOException, InterruptedException {
+
 
             /*
              Interesting from 'man stty'
@@ -393,136 +394,171 @@ public class Main {
 
              */
 
-            // Input Loop
+
             try {
-                System.out.println("Start typing ('alt/option + enter' to finish):");
+                this.init();
+                
+                int status = sendInput(new ByteArrayInputStream(initialInput.getBytes()));
 
+                // main loop
                 InputStream in = System.in;
+                while(status != 0) {
+                    status = sendInput(in);
+                }
+                
+            } finally {
+                this.cleanUp();
+            }
 
-                // save cursor
-                System.out.print("\033[s");
+            System.out.println("* Editor Exited *\n");
+            System.out.println(this.textBuffer);
+        }
 
-                while (true) {
-                    int ch = in.read();
+        public void init() throws IOException {
 
-                    if (ch == 3) { // Ctrl + C to exit (for safety)
-                        System.out.println("\nExiting...");
-                        break;
-                    }
+            terminalHeight = TerminalTextEditor.getTerminalHeight();
+            terminalWidth = TerminalTextEditor.getTerminalWidth();
 
-                    // 27 10 is 'alt enter' on linux. Could be a good way to quit
-                    // 23 is 'ctrl backspace' on linux.
-                    // 27 100 is 'ctrl delete' on linux
-                    // 21 is 'ctrl delete' on mac.
-                    // 27 10 is 'option enter' on mac.
-                    // 226 136 134 is 'option j' on mac.
-                    // 27 106 is 'alt j' on linux
+            try {
+                // new ProcessBuilder("sh", "-c", "stty raw -echo </dev/tty").inheritIO().start().waitFor();
+                new ProcessBuilder("sh", "-c", "stty -icanon min 1 -echo </dev/tty").inheritIO().start().waitFor();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
-                    // Escape sequence for arrow keys
-                    if (ch == 27 && System.in.available() > 0) { 
-                        if (in.read() == 91) { // '['
-                            int arrow = in.read();
-                            if (arrow == 68) { // Left arrow
-                                this.moveLeft();
-                            } else if (arrow == 67) { // Right arrow
-                                this.moveRight();
-                            }
-                            else if (arrow == 65) { // up arrow
-                                this.moveUp();
-                            }
-                            else if (arrow == 66) { // down arrow
-                                this.moveDown();
-                            }
-                            else if (arrow == 10) { // alt/option enter
-                                TerminalTextEditor.reset(); // reset cursor
-                                // Ctrl + Enter (Linux: 10 then 13, Windows: just 10)
-                                System.out.println("\nFinal Text: " + textBuffer);
-                                break;
-                            }
+            clearScreen();
+        }
+
+        public void cleanUp() throws IOException {
+            // Restore terminal settings
+            new ProcessBuilder("sh", "-c", "stty sane </dev/tty").inheritIO().start();
+            TerminalTextEditor.reset();
+        }
+
+        public int sendInput(InputStream in) throws IOException {
+            do {
+                int ch = in.read();
+
+                if (ch == 3) { // Ctrl + C to exit (for safety)
+                    System.out.println("\nExiting...");
+                    break;
+                }
+
+                // 27 10 is 'alt enter' on linux. Could be a good way to quit
+                // 23 is 'ctrl backspace' on linux.
+                // 27 100 is 'ctrl delete' on linux
+                // 21 is 'ctrl delete' on mac.
+                // 27 10 is 'option enter' on mac.
+                // 226 136 134 is 'option j' on mac.
+                // 27 106 is 'alt j' on linux
+
+                // Escape sequence for arrow keys
+                if (ch == 27 && System.in.available() > 0) { 
+                    int mod = in.read();
+                    if (mod == 91) { // '['
+                        int arrow = in.read();
+                        if (arrow == 68) { // Left arrow
+                            this.moveLeft();
+                        } else if (arrow == 67) { // Right arrow
+                            this.moveRight();
                         }
-                        continue;
-                    }
-                    else if (ch == 27) {
-                        ijklCursorMode = !ijklCursorMode;
-                    }
-
-
-                    // Backspace
-                    if (ch == 127 || ch == 8) { 
-                        delete();
-                        continue;
-                    }
-
-                    // Printable characters
-                    if (ch >= 32 && ch <= 126) { 
-
-                        // ijkl cursor movements
-                        if (ijklCursorMode) {
-                            switch (ch) {
-                                case 105 -> moveUp();
-                                case 107 -> moveDown();
-                                case 106 -> moveLeft();
-                                case 108 -> moveRight();
-                            };
+                        else if (arrow == 65) { // up arrow
+                            this.moveUp();
                         }
-                        else {
-                            printChar((char) ch);
+                        else if (arrow == 66) { // down arrow
+                            this.moveDown();
                         }
                     }
-
-                    // tab
-                    if (ch == 9) {
-                        printChar(' ');
-                        printChar(' ');
-                        printChar(' ');
-                        printChar(' ');
+                    else if (mod == 10) { // alt/option enter
+                        TerminalTextEditor.clearScreen(); // reset cursor
+                        return 0;
                     }
+                    continue;
+                }
+                else if (ch == 27) {
+                    ijklCursorMode = !ijklCursorMode;
+                }
 
-                    // new lines
-                    if (isNewLineChar((char) ch)) {
-                        // if in a copy paste basically
-                        if (in.available() > 0) {
-                            printChar('\n');
-                        }
-                        // other wise adjust next line to tab of current line
-                        else {
-                            printChar('\n');
-                            int count = 0;
-                            int pos = this.bufferPosition;
-                            pos -= 2;
-                            if (pos > 0) {
-                                // get to start of line
-                                char c = this.textBuffer.charAt(pos);
-                                while (!isNewLineChar(c) && pos > 0) {
-                                    pos--;
-                                    c = this.textBuffer.charAt(pos);
-                                }
-                                if (isNewLineChar(c)) {
-                                    pos++;
-                                    c = this.textBuffer.charAt(pos);
-                                }
 
-                                // count how many spaces
-                                while (c == ' ') {
-                                    pos++;
-                                    count++;
-                                    c = this.textBuffer.charAt(pos);
-                                }
-                            }
-                            
-                            for (int i = 0; i < count; i++) {
-                                printChar(' ');
-                            }
-                        }
+                // Backspace
+                if (ch == 127 || ch == 8) { 
+                    delete();
+                    continue;
+                }
 
+                // Printable characters
+                if (ch >= 32 && ch <= 126) { 
+
+                    // ijkl cursor movements
+                    if (ijklCursorMode) {
+                        switch (ch) {
+                            case 105 -> moveUp();
+                            case 107 -> moveDown();
+                            case 106 -> moveLeft();
+                            case 108 -> moveRight();
+                        };
+                    }
+                    else {
+                        printChar((char) ch);
                     }
                 }
-            } finally {
-                // Restore terminal settings
-                new ProcessBuilder("sh", "-c", "stty sane </dev/tty").inheritIO().start();
-                TerminalTextEditor.reset();
-            }
+
+                // tab
+                if (ch == 9) {
+                    printChar(' ');
+                    printChar(' ');
+                    printChar(' ');
+                    printChar(' ');
+                }
+
+                // new lines
+                if (isNewLineChar((char) ch)) {
+
+                    // handle being on the last line of the window
+                    scrollDownIfNeeded();
+
+                    // if in a copy paste basically
+                    if (in.available() > 0) {
+                        printChar('\n');
+                    }
+                    // other wise adjust next line to tab of current line
+                    else {
+                        printChar('\n');
+                        int count = 0;
+                        int pos = this.bufferPosition;
+                        pos -= 2;
+                        if (pos > 0) {
+                            // get to start of line
+                            char c = this.textBuffer.charAt(pos);
+                            while (!isNewLineChar(c) && pos > 0) {
+                                pos--;
+                                c = this.textBuffer.charAt(pos);
+                            }
+                            if (isNewLineChar(c)) {
+                                pos++;
+                                c = this.textBuffer.charAt(pos);
+                            }
+
+                            // count how many spaces
+                            while (c == ' ') {
+                                pos++;
+                                count++;
+                                c = this.textBuffer.charAt(pos);
+                            }
+                        }
+                        
+                        for (int i = 0; i < count; i++) {
+                            printChar(' ');
+                        }
+                    }
+
+                }
+
+            } while (in.available() > 0);
+
+            return 1;
         }
+
 
         private void printChar(char ch) {
             this.textBuffer.insert(this.bufferPosition, (char) ch);
@@ -549,15 +585,31 @@ public class Main {
         }
         
         private void moveLeft() {
+
+            // handle getting to side of window
+            if (this.windowStartIndex != 0) {
+                int lineStart = getStartOfLine(this.bufferPosition);
+                if ((this.bufferPosition - lineStart) < this.windowStartIndex) {
+                    this.windowStartIndex--;
+                }
+            }
             
-            // handle begining of line
+            // handle begining of line 
             if (this.bufferPosition != 0 && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition - 1))) {
                 this.bufferPosition--;
                 this.reprint();
             }
+
         }
 
         private void moveRight() {
+
+
+            // handle getting to side of window
+            int lineStart = getStartOfLine(this.bufferPosition);
+            if ((this.bufferPosition - lineStart) >= this.terminalWidth) {
+                this.windowStartIndex++;
+            }
 
             if (this.bufferPosition != this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) {
                 this.bufferPosition++;
@@ -567,33 +619,39 @@ public class Main {
 
         private void moveUp() {
 
-            // determine distance from line start
-            int newBuf = this.bufferPosition - 1;
-            while (newBuf > 0 && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf--;
-            int startToPos = this.bufferPosition - newBuf - 1;
+            // handle hitting top of window
+            int currentLine = getLine(this.bufferPosition);
+            if (this.windowStartLine > 0 && currentLine == this.windowStartLine) {
+                this.windowStartLine--;
+            }
 
-            if (newBuf > 0) {
+            // determine distance from line start
+            int lineStart = getStartOfLine(this.bufferPosition);
+            int startToPos = this.bufferPosition - lineStart;
+
+            if (lineStart > 0) {
 
                 // move to next line
-                newBuf--;
+                lineStart--;
 
                 // move to the beginning of the line
-                while (newBuf > 0 && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf--;
-                if (isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf++;
+                int nextLineStart = getStartOfLine(lineStart);
 
                 // move to the same index or end of new line
-                this.bufferPosition = newBuf;
-                int newLinePos = newBuf + startToPos;
-                while (this.bufferPosition < this.textBuffer.length() && this.bufferPosition < newLinePos && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) this.bufferPosition++;
+                this.bufferPosition = nextLineStart;
+                int newLineLength = lineStart - nextLineStart;
+                startToPos = startToPos > newLineLength? newLineLength : startToPos;
+                int newLinePos = nextLineStart + startToPos;
+                while (
+                    this.bufferPosition < this.textBuffer.length() && 
+                    this.bufferPosition < newLinePos ) this.bufferPosition++;
                 
-            }
-            else {
-                this.bufferPosition = 0;
             }
             this.reprint();
         }
 
         private void moveDown() {
+
 
             // determine if we're on the last line
             boolean isLastLine = true;
@@ -603,27 +661,60 @@ public class Main {
                 i++;
             }
 
-
             if (!isLastLine) {
+                // handle hitting window edge
+                scrollDownIfNeeded();
 
                 // determine start of current line
-                int newBuf = this.bufferPosition - 1;
-                while (newBuf >= 0 && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf--;
-                int startToPos = this.bufferPosition - newBuf - 1;
+                int lineStart = getStartOfLine(this.bufferPosition);
+                int startToPos = this.bufferPosition - lineStart;
 
                 // move to next line
-                newBuf++;
-                while (newBuf < this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(newBuf))) newBuf++;
+                while (lineStart < this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(lineStart))) lineStart++;
+                lineStart++;
 
                 // move to same index or end of new line
-                this.bufferPosition = newBuf + 1;
+                this.bufferPosition = lineStart;
                 int newLinePos = this.bufferPosition + startToPos;
                 while (this.bufferPosition < this.textBuffer.length() && this.bufferPosition < newLinePos && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) this.bufferPosition++;
                 
                 this.reprint();
             }
+        }
 
-            
+        private void scrollDownIfNeeded() {
+
+            // handle hitting bottom of window
+            int line = getLine(this.bufferPosition);
+            int lastLine = this.windowStartLine + this.terminalHeight - 1;
+            if (line == lastLine) {
+                this.windowStartLine++;
+            }
+        }
+
+        private int getLine(int index) {
+            int line = 0;
+            for (int i = 0; i < index; i++) {
+                if (isNewLineChar(this.textBuffer.charAt(i))) {
+                    line++;
+                }
+            }
+
+            return line;
+        }
+
+        private int getStartOfLine(int index) {
+
+            if (index < this.textBuffer.length() && isNewLineChar(this.textBuffer.charAt(index))) index--;
+
+            int lineStart = 0;
+            for (int i = index; i >= 0; i--) {
+                if (i < this.textBuffer.length() && isNewLineChar(this.textBuffer.charAt(i))) {
+                    lineStart = i + 1;
+                    break;
+                }
+            }
+            return lineStart;
         }
 
         private static void cursorUp(int lines) {
@@ -646,45 +737,106 @@ public class Main {
                 System.out.print("\033[" + characters + "D");
         }
 
+        private static void cursorHome() {
+            System.out.print("\033[H");
+            System.out.flush();
+        }
+
+        private static void clearBelowCursor() {
+            System.out.println("\033[J");
+        }
+
+        private static void clearScreen() {
+            System.out.print("\033[2J");
+            System.out.flush();
+            cursorHome();
+        }
+
         private void reprint() {
             // XXX when buffer is larger than the screen we need to keep track of how far it is to the top.
             // since reseting the cursor only puts the cursor at the top current view
 
-            // reset cursor to original position
-            System.out.print("\033[u");
-
-            // delete all lines
-            int count = TerminalTextEditor.countLines(textBuffer);
-            int linesToWipe = Math.max(this.numLines, count);
-            this.numLines = count;
-            for (int i = 0; i < linesToWipe; i++) {
-                System.out.print("\033[2K");
-                TerminalTextEditor.cursorDown(1);
-            }
-            TerminalTextEditor.cursorUp(linesToWipe);
+            // reset cursor to home and delete all lines
+            clearScreen();
 
             // reprint
-            System.out.print(this.textBuffer);
+            int startIndex = getLineIndex(this.windowStartLine);
+            int endIndex = getLineIndex(this.windowStartLine + this.terminalHeight);
+            if (endIndex == -1) endIndex = this.textBuffer.length();
+            if (endIndex < this.textBuffer.length() && isNewLineChar(this.textBuffer.charAt(endIndex))) endIndex--;
+            
 
-            // set cursor to current position
-            System.out.print("\033[u");
-            int cursorPos = 0;
-            int lines = 0;
-            int lineToCursor = 0;
-            while (cursorPos < this.bufferPosition) {
-                if (cursorPos < this.textBuffer.length() && isNewLineChar(this.textBuffer.charAt(cursorPos))) {
-                    lineToCursor = 0;
-                    lines++;
+            StringBuilder coloredBuffer = colorer.addColors(
+                this.textBuffer.substring(startIndex, endIndex)
+            );
+            String[] lines = coloredBuffer.toString().split("\n");
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
+                if (line.length() > this.terminalWidth) {
+                    System.out.println(line.substring(this.windowStartIndex, this.terminalWidth + this.windowStartIndex));
                 }
                 else {
-                    lineToCursor++;
+                    System.out.println(line);
+                }
+            }
+
+            // set cursor to current position
+            TerminalTextEditor.cursorHome();
+            int cursorPos = startIndex;
+            int linesToCursor = 0;
+            int spacesToCursor = 0;
+            while (cursorPos < this.bufferPosition) {
+                if (cursorPos < this.textBuffer.length() && isNewLineChar(this.textBuffer.charAt(cursorPos))) {
+                    spacesToCursor = 0;
+                    linesToCursor++;
+                }
+                else {
+                    spacesToCursor++;
                 }
                 cursorPos++;
             }
-            TerminalTextEditor.cursorDown(lines);
-            TerminalTextEditor.cursorRight(lineToCursor);
-
+            TerminalTextEditor.cursorDown(linesToCursor);
+            TerminalTextEditor.cursorRight(spacesToCursor - this.windowStartIndex);
             
+        }
+
+        public int getLineIndex(int line) {
+            if (line == 0) return 0;
+
+            int count = 0;
+            for (int i = 0; i < this.textBuffer.length(); i++) {
+                if (isNewLineChar(this.textBuffer.charAt(i))) {
+                    count++;
+                }
+                if (count == line) return i + 1;
+            }
+
+            return -1;
+
+        }
+
+        public static int getTerminalWidth() {
+            int width = 80; // Default width
+            try {
+                Process process = new ProcessBuilder("sh", "-c", "tput cols 2> /dev/tty").start();
+                process.waitFor();
+                width = Integer.parseInt(new String(process.getInputStream().readAllBytes()).trim());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return width;
+        }
+
+        public static int getTerminalHeight() {
+            int height = 24; // Default height
+            try {
+                Process process = new ProcessBuilder("sh", "-c", "tput lines 2> /dev/tty").start();
+                process.waitFor();
+                height = Integer.parseInt(new String(process.getInputStream().readAllBytes()).trim());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return height - 1;
         }
 
         private static int countLines(StringBuilder builder) {
@@ -698,12 +850,14 @@ public class Main {
             return lines;
         }
 
-        public static void main(String[] args) throws IOException {
-            new TerminalTextEditor().run();
-            // new TerminalTextEditor().testChars();
+        public static void main(String[] args) throws IOException, InterruptedException {
+            // new TerminalTextEditor().run("\n\n\n\n\n\n\n\n\n\n\nend");
+            new TerminalTextEditor().run("");
+            // testChars();
+            // test();
         }
 
-        public void testChars() throws IOException {
+        public static void testChars() throws IOException {
 
             try {
                 new ProcessBuilder("sh", "-c", "stty -icanon min 1 -echo </dev/tty").inheritIO().start().waitFor();
@@ -734,6 +888,31 @@ public class Main {
 
         }
 
+        public static void test() {
+            clearScreen();
+            int h = getTerminalHeight();
+            for (int i = 0; i < 50; i++) {
+                System.out.println("asdfhasdf");
+            }
+            // cursorUp(50);
+            
+            clearScreen();
+        }
+
+
+        public interface OutputColorer {
+            StringBuilder addColors(String buffer);
+        }
+        
+        public static class DefaultColorer implements OutputColorer {
+
+            @Override
+            public StringBuilder addColors(String buffer) {
+                return new StringBuilder(buffer);
+            }
+
+
+        }
     }
 
 
