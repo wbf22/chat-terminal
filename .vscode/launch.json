@@ -41,7 +41,7 @@
             "name": "chat in terminal",
             "request": "launch",
             "mainClass": "brandon.gpt.Main",
-            "projectName": "chat",
+            "projectName": "chat-terminal_af68a5d7",
             "args": [
                 "--api-key="
             ]

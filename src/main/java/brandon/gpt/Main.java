@@ -25,6 +25,7 @@ import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,120 +45,122 @@ public class Main {
     public static final int HISTORY_LENGTH = 20;
 
 
+    private static final String starterMessage = PROMPT_DIVIDER + Role.user.name() + "\n\n\n";
     public static void main(String[] args) throws IOException {
 
+
         // parse options
-        boolean terminalMode = true;
+        Map<String, String> shortArgs = Map.of(
+            "-k", 
+            """
+            Sets the open-api key to be used in requests.
+            If you wish to not specify this everytime, we
+            reccomend either making an alias or inserting 
+            your api key in the Main.java file in the 
+            repository and building the jar.
+            """,
+            "-m",
+            """
+            The model name param sent to the api. The 
+            default is 'gpt-4o-mini'. 
+            """,
+            "-t",
+            """
+            Sets the max tokens param sent to the api. 
+            Defaults to 4096.
+            """,
+            "-T",
+            """
+            Sets the temperature param sent to the api.
+            For tasks where you want more accurate answers
+            This should be a value < 0.5. For more creative
+            answers this can be more, even 1.0+.
+            """
+        );
 
-        for (int i = 0; i < args.length; i++) {
+        Map<String, String> longFlags = Map.of(
+            "--api-key", 
+            """
+            --api-key=sk-proj-...
+            Sets the open-api key to be used in requests.
+            If you wish to not specify this everytime, we
+            reccomend either making an alias or inserting 
+            your api key in the Main.java file in the 
+            repository and building the jar.
+            """,
+            "--model",
+            """
+            The model name param sent to the api. The 
+            default is 'gpt-3.5-turbo'. 
+            """,
+            "--tokens",
+            """
+            Sets the max tokens param sent to the api. 
+            Defaults to 4096.
+            """,
+            "--temperature",
+            """
+            Sets the temperature param sent to the api.
+            For tasks where you want more accurate answers
+            This should be a value < 0.5. For more creative
+            answer
+            """
+        );
+        
 
-            String arg = args[i];
-            if (arg.equals("-f") || arg.equals("--file-mode")) 
-                terminalMode = false;
-            else if (arg.equals("-k")) {
-                API_KEY = args[i+1];
-                i++;
-            }
-            else if (arg.startsWith("--api-key="))
-                API_KEY = arg.replace("--api-key=", "");
-            else if (arg.equals("-t")) {
-                MAX_TOKENS = Integer.parseInt(args[i+1]);
-                i++;
-            }
-            else if (arg.startsWith("--tokens="))
-                MAX_TOKENS = Integer.parseInt(
-                    arg.replace("--tokens=", "")
-                );
-            else if (arg.equals("-T")) {
-                TEMPERATURE = Double.parseDouble(args[i+1]);
-                i++;
-            }
-            else if (arg.startsWith("--temperature="))
-                TEMPERATURE = Double.parseDouble(
-                    arg.replace("--temperature=", "")
-                );
-            else if (arg.equals("-m")) {
-                MODEL = args[i+1];
-                i++;
-            }
-            else if (arg.startsWith("--model="))
-                MODEL = arg.replace("--model=", "");
-            else if (arg.equals("-?") || arg.equals("--help")) {
-                System.out.println(
-                    """
-                    USAGE: chat [OPTION]...
-                    Sends prompts to the OpenAi api and displays responses. Maintains a conversation history and allows fine user control of the api
-                    parameters.
-                    
-                    Works in two main modes, file based mode, and terminal mode.
+        ArgParser parser = new ArgParser(
+            args, 
+            shortArgs, 
+            longFlags, 
+            null, 
+            Map.of("-h", "View help", "--help", "View help"), 
+            "******** terminal gpt ********",
+            """
+            Sends prompts to the OpenAi api and displays responses. Maintains a conversation history and allows fine user control of the api
+            parameters.
+                     
+            """,
+            """
+            
+            Exmaples:
 
-                    Terminal Mode
-                    - Classic mode where user prompts are entered into the terminal and then submitted by hitting 'enter'. 
-                    - Api responses are then displayed
-                    - The prompt will loop until the user submits 'quit', 'exit', or 'close'.
-                    - The user can enter 'dump' to dump the chat history into a 'chat.md' file in the current directory. This 
-                    file will be ready to use in file mode
-
-                    File mode
-                    - Mode useful for editing prompts to the api in a text editor. Useful for editing code blocks to be sent to the api. 
-                    - In this mode a 'chat.md' file is created in the current directory. Api responses and user prompts are displayed from most
-                    recent to oldest seperated by dividers. 
-                    - Past responses or prompts can be edited in this mode allowing control of the history. Each time a request is made in this mode,
-                    the history is refreshed from the contents of the 'chat.md' file. 
-                    - Each time the user wants to submit the most recent prompt in the file, they should run the 'chat -f' command again to send the 
-                    prompt to the api.
-
-
-                    Options (order does not matter):
-                        -f, --file-mode                         Activates file mode explained above
-                        -?, --help                              Prints this dialog
-                        -k, --api-key=sk-proj-...               Sets the open-api key to be used in requests.
-                                                                If you wish to not specify this everytime, we
-                                                                reccomend either making an alias or inserting 
-                                                                your api key in the Main.java file in the 
-                                                                repository and building the jar with `mvn package`
-                        -m, --model=...                         The model name param sent to the api. The 
-                                                                default is 'gpt-3.5-turbo'. 
-                        -t, --tokens=...                        Sets the max tokens param sent to the api. 
-                                                                Defaults to 4096.
-                        -T, --temperature=...                   Sets the temperature param sent to the api.
-                                                                For tasks where you want more accurate answers
-                                                                This should be a value < 0.5. For more creative
-                                                                answers this can be more, even 1.0+.
-
-
-                    Exmaples:
-
-                        We provide a jar file. You can run the jar file with `java -jar target/chat-1.0.jar' or make an alias like this:
-                        `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar'`. You might also make an alias 
-                        like this to avoid having to submit your api-key each time you run the command: 
-                        `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar -k sk-proj-...'`
-                        
-                        I'll do the examples below with the first alias though.
-
-                        Basic:
-                            `chat -k sk-proj-...`
-
-                        All options in file mode (order does not matter):
-                            `chat -k sk-proj-... -f -m gpt-3.5-turbo -t 1024 -T 1.2`
-
-                    
-
-
-                    """
+                We provide a jar file. You can run the jar file with `java -jar target/chat-1.0.jar' or make an alias like this:
+                `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar'`. You might also make an alias 
+                like this to avoid having to submit your api-key each time you run the command: 
+                `alias chat='java -jar /home/brandon/Documents/chat-terminal/target/chat-1.0.jar -k sk-proj-...'`
                 
-                );
-                return;
-            }
+                I'll do the examples below with the first alias though.
 
+                Basic:
+                    `chat -k sk-proj-...`
+
+                All options in file mode (order does not matter):
+                    `chat -k sk-proj-... -m gpt-3.5-turbo -t 1024 -T 1.2`
+            """,
+            true
+        );
+        Map<String, String> parsedArgs = parser.parseArgs();
+        if (parsedArgs.containsKey("-k")) {
+            API_KEY = parsedArgs.get("-k");
         }
-
-
-        // create chat.md file if needed
-        if (!terminalMode && !Files.exists(Path.of(FILE))) {
-            Files.createFile(Path.of(FILE));
-            return;
+        else if (parsedArgs.containsKey("--api-key"))
+            API_KEY = parsedArgs.get("--api-key");
+        else if (parsedArgs.containsKey("-t")) {
+            MAX_TOKENS = Integer.parseInt(parsedArgs.get("-t"));
         }
+        else if (parsedArgs.containsKey("--tokens"))
+            MAX_TOKENS = Integer.parseInt(parsedArgs.get("--tokens"));
+        else if (parsedArgs.containsKey("-T")) {
+            TEMPERATURE = Double.parseDouble(parsedArgs.get("-T"));
+        }
+        else if (parsedArgs.containsKey("--temperature"))
+            TEMPERATURE = Double.parseDouble(parsedArgs.get("--temperature"));
+        else if (parsedArgs.containsKey("-m")) {
+            MODEL = parsedArgs.get("-m");
+        }
+        else if (parsedArgs.containsKey("--model="))
+            MODEL = parsedArgs.get("--model");
+
 
         RestClient<String> client = new RestClient<>(
             (json, type, objectMapper) -> { // deserializer
@@ -177,50 +180,46 @@ public class Main {
             "Authorization", "Bearer " + API_KEY
         );
 
+        TerminalTextEditor editor = new TerminalTextEditor();
         try {
-            List<Message> history = new ArrayList<>();
-            if (!terminalMode) {
-                history = readHistory();
-            }
 
-            do {
+            TerminalTextEditor.wipeTerminalCompletely();
+
+            // main loop
+            boolean quit = false;
+            boolean enterToFinishMode = false;
+            String messagesText = starterMessage;
+
+            while (!quit) {
+                // editor loop
+                editor = new TerminalTextEditor();
+                editor.init();
+                int status = editor.sendInput(new ByteArrayInputStream(messagesText.getBytes()), false);
+                InputStream in = System.in;
+                while(status != 0) {
+                    status = editor.sendInput(in, enterToFinishMode);
+                }
+                editor.sendInput(new ByteArrayInputStream("\n\n\n".getBytes()), false);
+
                 // get user input
-                Message msg = new Message();
-                if (!terminalMode) {
-                    msg = getInputFromFile();
+                List<Message> messages = parseMessages(editor.textBuffer);
+
+                // check for quit command
+                Message lastInput = messages.get(messages.size() - 1);
+                if (isQuitting(lastInput)) {
+                    quit = true;
+                    break;
                 }
-                else {
-                    System.out.print(AnsiControl.color(57, 109, 14) + "You: " + AnsiControl.RESET); // rgb(57, 109, 14)
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-                    msg.content = reader.readLine();
-                    msg.role = Role.user.name();
-
-                    String possibleCmd = msg.content.toLowerCase();
-                    if (EXIT_COMMANDS.contains(possibleCmd)) {
-                        System.out.println("Have a nice day ya nut!");
-                        return;
-                    }
-                    else if (possibleCmd.startsWith("dump")) {
-                        if (!Files.exists(Path.of(FILE))) {
-                            Files.createFile(Path.of(FILE));
-                        }
-                        writeHistory(history);
-                        System.out.println("Dumped, ya nut!");
-                        return;
-                    }
-
-
-                    System.out.println();
+                else if (enterToFinishMode(lastInput)) {
+                    enterToFinishMode = !enterToFinishMode;
+                    continue;
                 }
-                msg.content = "\n\n" + msg.content + "\n";
-                history.add(msg);
 
                 // make request to gpt
-                System.out.println("Sending prompt to GPT...");
                 Prompt promptObj = new Prompt();
                 promptObj.model = MODEL;
                 promptObj.max_tokens = MAX_TOKENS;
-                promptObj.messages = history;
+                promptObj.messages = messages;
 
                 Completion completion = client.post(
                     API_URL, 
@@ -230,24 +229,21 @@ public class Main {
                 );
 
                 // print out in file
+                int terminalWidth = TerminalTextEditor.getTerminalWidth();
                 Message message = completion.choices.get(0).message;
-                message.content = "\n\n" + message.content + "\n\n\n";
-                history.add(message);
-                history = history.subList(Math.max(0, history.size() - HISTORY_LENGTH), history.size());
+                message.content = wrapMessage(
+                    message.content, 
+                    terminalWidth
+                );
+                messages.add(message);
+                messages = messages.subList(Math.max(0, messages.size() - HISTORY_LENGTH), messages.size());
                 
-                if (!terminalMode) {
-                    writeHistory(history);
-                    history = readHistory();
-                }
-                else {
-                    System.out.println();
-                    System.out.println(
-                        AnsiControl.color(57, 109, 14) + "GPT: " + AnsiControl.RESET + unescapeMessage(message.content)
-                    );
-                }
+                messagesText = messagesToString(messages);
+            }
 
-            } 
-            while (terminalMode);
+            TerminalTextEditor.wipeTerminalCompletely();
+            System.out.println(messagesText);
+            
         }
         catch (GptExitException e) {
             System.out.println("Exiting...");
@@ -261,10 +257,26 @@ public class Main {
         }
         catch (Exception e) {
             e.printStackTrace();
+        }finally {
+            editor.cleanUp();
         }
     }
 
-    private static Message getInputFromFile() throws FileNotFoundException, IOException, InterruptedException {
+    private static boolean isQuitting(Message message) {
+
+
+        String content = message.content.trim();
+
+        return content.startsWith("quit");
+    }
+
+    private static boolean enterToFinishMode(Message message) {
+        String content = message.content.trim();
+
+        return content.startsWith("en");
+    }
+
+    private static Message getInputFromTerminalEditor() throws FileNotFoundException, IOException, InterruptedException {
         
         // Read the file
         File file = new File(FILE);
@@ -286,55 +298,41 @@ public class Main {
 
     public static class GptExitException extends RuntimeException { }
 
-    public static List<Message> readHistory() throws FileNotFoundException, IOException{
-        List<Message> history = new ArrayList<>();
+    public static List<Message> parseMessages(StringBuilder messagesText) throws FileNotFoundException, IOException{
+        List<Message> parsedMessages = new ArrayList<>();
 
-        // Read the file
-        File file = new File(FILE);
-        BufferedReader reader = new BufferedReader(new FileReader(file));
-
-        // store in history 
-        String line;
-        while ((line = reader.readLine()) != null && !line.startsWith(PROMPT_DIVIDER) ) {}
-
-        // if empty return
-        if (line == null) {
-            reader.close();
-            return history;
-        }
+        String[] messages = messagesText.toString().split(PROMPT_DIVIDER);
 
         // read each message into history
-        String thisRole = line.replace(PROMPT_DIVIDER, "").trim();
-        try {
-            while (reader.ready()) {
-                Message message = readMessage(reader, file);
-                String nextRole = message.role;
-                message.role = thisRole;
-                history.add(message);
-                thisRole = nextRole;
+        for (String message : messages) {
+            if (!message.isBlank()) {
+
+                Role role = message.startsWith(Role.user.name())? Role.user : Role.assistant;
+                String content = message.substring(role.name().length());
+                parsedMessages.add(
+                    new Message(
+                        content,
+                        role.name()
+                    )
+                );
+
             }
         }
-        finally {
-            reader.close();
-        }
 
-        Collections.reverse(history);
-        return history;
+        return parsedMessages;
     }
 
-    public static void writeHistory(List<Message> history) throws IOException {
-        File file = new File(FILE);
-        try (FileWriter writer = new FileWriter(file, false)) {
-        
-            writer.write("\n\n");
-            for (int i = history.size() - 1; i >= 0; i--) {
-                Message m = history.get(i);
-                writer.write(PROMPT_DIVIDER + m.role + "\n");
-                String unescaped = unescapeMessage(m.content);
-                writer.write(unescaped);
-            }
-
+    public static String messagesToString(List<Message> messages) throws IOException {
+        StringBuilder messagesText = new StringBuilder("\n\n");
+        for (int i = 0; i <  messages.size(); i++) {
+            Message m = messages.get(i);
+            messagesText.append(PROMPT_DIVIDER + m.role + "\n");
+            String unescaped = unescapeMessage(m.content);
+            messagesText.append(unescaped);
         }
+
+        messagesText.append(starterMessage);
+        return messagesText.toString();
     }
 
     public static String unescapeMessage(String message) {
@@ -343,6 +341,42 @@ public class Main {
             .replace("\\t", "\t")
             .replace("\\\\\"", "\"")
             .replace("\\\"", "\"");
+    }
+
+    public static String wrapMessage(String message, int terminalWidth) {
+        String[] lines = message.split("\n");
+
+        StringBuilder wrappedMessage = new StringBuilder("\n\n");
+        for (String line : lines) {
+            if (line.length() > terminalWidth) {
+                
+                // chop line up into terminalWidth lengths
+                while (line.length() > terminalWidth) {
+                    
+                    String substr = line.substring(0, terminalWidth);
+                    
+                    // move back to last word end
+                    int i = substr.length() - 1;
+                    while (i >= 0 && substr.charAt(i) != ' ') {
+                        i--;
+                    }
+                    substr = substr.substring(0, i);
+
+                    // add to buffer
+                    wrappedMessage.append(substr).append("\n");
+
+                    // remove from line
+                    line = line.substring(substr.length());
+                }
+                wrappedMessage.append(line).append("\n");
+            }
+            else {
+                wrappedMessage.append(line).append("\n");
+            }
+        }
+        wrappedMessage.append("\n\n");
+
+        return wrappedMessage.toString();
     }
 
     public static Message readMessage(BufferedReader reader, File file) throws IOException {
@@ -368,6 +402,7 @@ public class Main {
         private int bufferPosition = 0;
         private StringBuilder textBuffer = new StringBuilder();
         private boolean ijklCursorMode = false;
+        public boolean clearOnFinish = false;
         public OutputColorer colorer = new DefaultColorer();
         public int terminalHeight;
         public int terminalWidth;
@@ -398,12 +433,12 @@ public class Main {
             try {
                 this.init();
                 
-                int status = sendInput(new ByteArrayInputStream(initialInput.getBytes()));
+                int status = sendInput(new ByteArrayInputStream(initialInput.getBytes()), false);
 
                 // main loop
                 InputStream in = System.in;
                 while(status != 0) {
-                    status = sendInput(in);
+                    status = sendInput(in, false);
                 }
                 
             } finally {
@@ -411,13 +446,19 @@ public class Main {
             }
 
             System.out.println("* Editor Exited *\n");
-            System.out.println(this.textBuffer);
+            // System.out.println(this.textBuffer);
+        }
+
+        public void terminalResize() {
+
+            terminalHeight = TerminalTextEditor.getTerminalHeight();
+            terminalWidth = TerminalTextEditor.getTerminalWidth();
+
         }
 
         public void init() throws IOException {
 
-            terminalHeight = TerminalTextEditor.getTerminalHeight();
-            terminalWidth = TerminalTextEditor.getTerminalWidth();
+            terminalResize();
 
             try {
                 // new ProcessBuilder("sh", "-c", "stty raw -echo </dev/tty").inheritIO().start().waitFor();
@@ -435,7 +476,7 @@ public class Main {
             TerminalTextEditor.reset();
         }
 
-        public int sendInput(InputStream in) throws IOException {
+        public int sendInput(InputStream in, boolean enterToFinish) throws IOException {
             do {
                 int ch = in.read();
 
@@ -469,16 +510,14 @@ public class Main {
                             this.moveDown();
                         }
                     }
-                    else if (mod == 10) { // alt/option enter
-                        TerminalTextEditor.clearScreen(); // reset cursor
-                        return 0;
+                    else if (mod == 10 && !enterToFinish) { // alt/option enter
+                        return finish();
                     }
                     continue;
                 }
                 else if (ch == 27) {
                     ijklCursorMode = !ijklCursorMode;
                 }
-
 
                 // Backspace
                 if (ch == 127 || ch == 8) { 
@@ -513,6 +552,9 @@ public class Main {
 
                 // new lines
                 if (isNewLineChar((char) ch)) {
+
+                    if (enterToFinish) 
+                        return finish();
 
                     // handle being on the last line of the window
                     scrollDownIfNeeded();
@@ -559,6 +601,12 @@ public class Main {
             return 1;
         }
 
+        private int finish() {
+            if (clearOnFinish)
+                TerminalTextEditor.clearScreen(); // reset cursor
+            return 0;
+        }
+
 
         private void printChar(char ch) {
             this.textBuffer.insert(this.bufferPosition, (char) ch);
@@ -597,8 +645,8 @@ public class Main {
             // handle begining of line 
             if (this.bufferPosition != 0 && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition - 1))) {
                 this.bufferPosition--;
-                this.reprint();
             }
+            this.reprint();
 
         }
 
@@ -752,6 +800,10 @@ public class Main {
             cursorHome();
         }
 
+        private static void wipeTerminalCompletely() throws InterruptedException, IOException {
+            new ProcessBuilder("clear").inheritIO().start().waitFor();
+        }
+
         private void reprint() {
             // XXX when buffer is larger than the screen we need to keep track of how far it is to the top.
             // since reseting the cursor only puts the cursor at the top current view
@@ -772,11 +824,16 @@ public class Main {
             String[] lines = coloredBuffer.toString().split("\n");
             for (int i = 0; i < lines.length; i++) {
                 String line = lines[i];
-                if (line.length() > this.terminalWidth) {
-                    System.out.println(line.substring(this.windowStartIndex, this.terminalWidth + this.windowStartIndex));
+                if (this.windowStartIndex < line.length()) {
+                    if ((this.terminalWidth + this.windowStartIndex) < line.length()) {
+                        System.out.println(line.substring(this.windowStartIndex, this.terminalWidth + this.windowStartIndex));
+                    }
+                    else {
+                        System.out.println(line.substring(this.windowStartIndex));
+                    }
                 }
                 else {
-                    System.out.println(line);
+                    System.out.println();
                 }
             }
 
@@ -915,7 +972,126 @@ public class Main {
         }
     }
 
+    public static class ArgParser {
 
+        public static class HelpException extends RuntimeException {}
+
+        public String[] args;
+        public Map<String, String> shortFlags;
+        public Map<String, String> longFlags;
+        public Map<String, String> booleanFlags;
+        public Map<String, String> helpFlags;
+        public String appName;
+        public String appDescription;
+        public String notes;
+        public boolean showManOnNoArgs;
+    
+        public ArgParser(
+            String[] args, 
+            Map<String, String> shortFlags, 
+            Map<String, String> longFlags, 
+            Map<String, String> booleanFlags, 
+            Map<String, String> helpFlags, 
+            String appName, 
+            String appDescription, 
+            String notes,
+            boolean showManOnNoArgs
+        )
+        {
+            this.args = args;
+            this.shortFlags = shortFlags;
+            this.longFlags = longFlags;
+            this.booleanFlags = booleanFlags;
+            this.helpFlags = helpFlags;
+            this.appName = appName;
+            this.appDescription = appDescription;
+            this.notes = notes;
+            this.showManOnNoArgs = showManOnNoArgs;
+        }
+
+        private Map<String, String> parseArgs() {
+            if (shortFlags == null) shortFlags = new HashMap<>();
+            if (booleanFlags == null) booleanFlags = new HashMap<>();
+            if (longFlags == null) longFlags = new HashMap<>();
+            
+            try {
+
+                if (showManOnNoArgs && args.length == 0) throw new HelpException();
+    
+                Map<String, String> parsedArgs = new HashMap<>();
+                for (int i = 0; i < args.length; i++) {
+                    String arg = args[i];
+                    
+                    // short flags
+                    if (shortFlags.containsKey(arg)) {
+                        i++;
+                        String nextValue = args[i];
+                        parsedArgs.put(arg, nextValue);
+                    }
+                    // boolean flags
+                    else if (booleanFlags.containsKey(arg)) {
+                        parsedArgs.put(arg, "");
+                    }
+                    // long flags
+                    else if(arg.contains("=")) {
+                        String[] longArg = arg.split("=");
+                        parsedArgs.put(longArg[0], longArg[1]);
+                    }
+                    else {
+    
+                        if (!helpFlags.containsKey(arg)) {
+                            throw new IllegalArgumentException(arg + " is not a recognized argument");
+                        }
+                        else {
+                            throw new HelpException();
+                        }
+    
+                    }
+                }
+    
+                return parsedArgs;
+            }
+            catch(Exception e) {
+                printMan();
+    
+                if (e instanceof HelpException) {
+                    throw e;
+                }
+                else {
+                    if (e instanceof IllegalArgumentException) throw e;
+        
+                    throw new IllegalArgumentException("Error parsing args!");
+
+                }
+            }
+            
+    
+        }
+        
+        private void printMan() {
+            System.out.println(appName);
+            System.out.println();
+            System.out.println(appDescription);
+            System.out.println();
+            System.out.println("Args");
+            Map<String, String> allFlags = new LinkedHashMap<>();
+            if (booleanFlags != null) allFlags.putAll(booleanFlags);
+            if (shortFlags != null) allFlags.putAll(shortFlags);
+            if (longFlags != null) allFlags.putAll(longFlags);
+            if (helpFlags != null) allFlags.putAll(helpFlags);
+            int longestFlagName = allFlags.entrySet().stream()
+                .mapToInt(entry -> entry.getKey().length())
+                .max()
+                .orElse(0);
+            for (Entry<String, String> entry : allFlags.entrySet()) {
+                String description = "   " + entry.getKey() + " ".repeat(longestFlagName - entry.getKey().length()) + " " + entry.getValue();
+                System.out.println(description);
+                System.out.println();
+            }
+
+            System.out.println(notes);
+        }
+    }
 
     /**
      * A basic REST client that can make GET, POST, PUT, PATCH, and DELETE requests.
