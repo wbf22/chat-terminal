@@ -270,8 +270,8 @@ public class Main {
                 int numLines = messageText.toString().split("\n").length;
                 if (numLines > editor.terminalHeight) {
                     editor.addToBufferKeepingCursor(messageText.toString());
-                    // int line = editor.getLine(editor.bufferPosition);
-                    // editor.moveToLine(line + 2);
+                    int line = editor.getLine(editor.bufferPosition);
+                    editor.moveToLine(line);
                 }
                 else {
                     editor.sendInput(new ByteArrayInputStream(messageText.toString().getBytes()), false);
