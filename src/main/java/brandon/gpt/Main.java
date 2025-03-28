@@ -266,13 +266,15 @@ public class Main {
                 messageText.append(unescaped);
                 messageText.append(starterMessage);
 
-                int lastLinePosition = editor.textBuffer.substring(0, editor.bufferPosition).toString().split("\n").length + 2;
-                editor.sendInput(new ByteArrayInputStream(messageText.toString().getBytes()), false);
-                
                 // if the response is bigger than the terminal window reset the cursor to the top of the response
                 int numLines = messageText.toString().split("\n").length;
                 if (numLines > editor.terminalHeight) {
-                    editor.moveToLine(lastLinePosition);
+                    editor.addToBufferKeepingCursor(messageText.toString());
+                    // int line = editor.getLine(editor.bufferPosition);
+                    // editor.moveToLine(line + 2);
+                }
+                else {
+                    editor.sendInput(new ByteArrayInputStream(messageText.toString().getBytes()), false);
                 }
             }
 
@@ -554,6 +556,13 @@ public class Main {
                     ijklCursorMode = !ijklCursorMode;
                 }
 
+
+                // enter in ijkl mode to exit
+                if (ijklCursorMode && ch == 10) {
+                    ijklCursorMode = false;
+                    return finish();
+                }
+
                 // Backspace
                 if (ch == 127 || ch == 8) { 
                     delete();
@@ -594,6 +603,9 @@ public class Main {
                     // handle being on the last line of the window
                     scrollDownIfNeeded();
 
+                    // reset start index since we're at the line start now
+                    this.windowStartIndex = 0;
+
                     // if in a copy paste basically
                     if (in.available() > 0) {
                         printChar('\n');
@@ -629,6 +641,8 @@ public class Main {
                         }
                     }
 
+
+
                 }
 
             } while (in.available() > 0);
@@ -644,9 +658,18 @@ public class Main {
 
 
         private void printChar(char ch) {
+
+
+            // insert char
             this.textBuffer.insert(this.bufferPosition, (char) ch);
             this.bufferPosition++;
 
+            // handle getting to side of window
+            int lineStart = getStartOfLine(this.bufferPosition);
+            if ((this.bufferPosition - lineStart) >= this.terminalWidth) {
+                this.windowStartIndex++;
+            }
+            
             reprint();
         }
 
@@ -690,7 +713,7 @@ public class Main {
 
             // handle getting to side of window
             int lineStart = getStartOfLine(this.bufferPosition);
-            if ((this.bufferPosition - lineStart) >= this.terminalWidth) {
+            if ((this.bufferPosition - lineStart) >= (this.terminalWidth - 1)) {
                 this.windowStartIndex++;
             }
 
@@ -753,7 +776,7 @@ public class Main {
                 int startToPos = this.bufferPosition - lineStart;
 
                 // move to next line
-                while (lineStart < this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(lineStart))) lineStart++;
+                lineStart = getEndOfLine(lineStart);
                 lineStart++;
 
                 // move to same index or end of new line
@@ -761,6 +784,10 @@ public class Main {
                 int newLinePos = this.bufferPosition + startToPos;
                 while (this.bufferPosition < this.textBuffer.length() && this.bufferPosition < newLinePos && !isNewLineChar(this.textBuffer.charAt(this.bufferPosition))) this.bufferPosition++;
                 
+                // handle moving down from line longer than window width
+                int lineEnd = getEndOfLine(lineStart);
+                if ((lineEnd - lineStart) < this.terminalWidth) this.windowStartIndex = 0;
+
                 this.reprint();
             }
         }
@@ -775,7 +802,7 @@ public class Main {
             }
         }
 
-        private int getLine(int index) {
+        public int getLine(int index) {
             int line = 0;
             for (int i = 0; i < index; i++) {
                 if (isNewLineChar(this.textBuffer.charAt(i))) {
@@ -798,6 +825,11 @@ public class Main {
                 }
             }
             return lineStart;
+        }
+
+        private int getEndOfLine(int index) {
+            while (index < this.textBuffer.length() && !isNewLineChar(this.textBuffer.charAt(index))) index++;
+            return index;
         }
 
         private static void cursorUp(int lines) {
@@ -839,6 +871,15 @@ public class Main {
             new ProcessBuilder("clear").inheritIO().start().waitFor();
         }
 
+        public static void moveCursor(int row, int column) {
+            System.out.print("\033[" + row + ";" + column + "H");
+        }
+
+        public void addToBufferKeepingCursor(String content) {
+            this.textBuffer.append(content);
+            reprint();
+        }
+
         private void reprint() {
             // XXX when buffer is larger than the screen we need to keep track of how far it is to the top.
             // since reseting the cursor only puts the cursor at the top current view
@@ -873,7 +914,7 @@ public class Main {
             }
 
             // set cursor to current position
-            TerminalTextEditor.cursorHome();
+            // TerminalTextEditor.cursorHome();
             int cursorPos = startIndex;
             int linesToCursor = 0;
             int spacesToCursor = 0;
@@ -887,8 +928,9 @@ public class Main {
                 }
                 cursorPos++;
             }
-            TerminalTextEditor.cursorDown(linesToCursor);
-            TerminalTextEditor.cursorRight(spacesToCursor - this.windowStartIndex);
+            moveCursor(linesToCursor + 1, spacesToCursor - this.windowStartIndex + 1);
+            // TerminalTextEditor.cursorDown(linesToCursor);
+            // TerminalTextEditor.cursorRight(spacesToCursor - this.windowStartIndex);
             
         }
 
