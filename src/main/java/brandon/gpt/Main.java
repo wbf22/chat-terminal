@@ -30,6 +30,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
     
@@ -190,12 +196,15 @@ public class Main {
             boolean enterToFinishMode = false;
             String messagesText = starterMessage;
 
+            editor = new TerminalTextEditor();
+            editor.init();
+            int status = editor.sendInput(new ByteArrayInputStream(messagesText.getBytes()), false);
+
             while (!quit) {
                 // editor loop
-                editor = new TerminalTextEditor();
-                editor.init();
-                int status = editor.sendInput(new ByteArrayInputStream(messagesText.getBytes()), false);
+                editor.terminalResize(); // check for terminal resize
                 InputStream in = System.in;
+                status = 1;
                 while(status != 0) {
                     status = editor.sendInput(in, enterToFinishMode);
                 }
@@ -203,6 +212,7 @@ public class Main {
 
                 // get user input
                 List<Message> messages = parseMessages(editor.textBuffer);
+                messages = messages.subList(Math.max(0, messages.size() - HISTORY_LENGTH), messages.size());
 
                 // check for quit command
                 Message lastInput = messages.get(messages.size() - 1);
@@ -221,28 +231,53 @@ public class Main {
                 promptObj.max_tokens = MAX_TOKENS;
                 promptObj.messages = messages;
 
-                Completion completion = client.post(
-                    API_URL, 
-                    headers, 
-                    promptObj, 
-                    Prompt.class
-                );
+                CompletableFuture<Completion> request = CompletableFuture.supplyAsync(() -> {
+                    Completion completion = client.post(
+                        API_URL, 
+                        headers, 
+                        promptObj, 
+                        Prompt.class
+                    );
+                    return completion;
+                });
+                
+                // Loop to check if the request is done
+                while (!request.isDone()) {
+                    try {
+                        System.out.print(".");
+                        System.out.flush();
+                        Thread.sleep(500); // Sleep briefly to avoid busy-waiting
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt(); // Restore interrupted status
+                    }
+                }
+                Completion completion = request.get();
 
                 // print out in file
                 int terminalWidth = TerminalTextEditor.getTerminalWidth();
                 Message message = completion.choices.get(0).message;
-                message.content = wrapMessage(
-                    message.content, 
+                StringBuilder messageText = new StringBuilder("");
+                messageText.append(PROMPT_DIVIDER + Role.assistant.name() + "\n");
+                String unescaped = unescapeMessage(message.content);
+                unescaped = wrapMessage(
+                    unescaped, 
                     terminalWidth
                 );
-                messages.add(message);
-                messages = messages.subList(Math.max(0, messages.size() - HISTORY_LENGTH), messages.size());
+                messageText.append(unescaped);
+                messageText.append(starterMessage);
+
+                int lastLinePosition = editor.textBuffer.substring(0, editor.bufferPosition).toString().split("\n").length + 2;
+                editor.sendInput(new ByteArrayInputStream(messageText.toString().getBytes()), false);
                 
-                messagesText = messagesToString(messages);
+                // if the response is bigger than the terminal window reset the cursor to the top of the response
+                int numLines = messageText.toString().split("\n").length;
+                if (numLines > editor.terminalHeight) {
+                    editor.moveToLine(lastLinePosition);
+                }
             }
 
             TerminalTextEditor.wipeTerminalCompletely();
-            System.out.println(messagesText);
+            System.out.println(editor.textBuffer);
             
         }
         catch (GptExitException e) {
@@ -399,7 +434,7 @@ public class Main {
 
     public static class TerminalTextEditor {
 
-        private int bufferPosition = 0;
+        public int bufferPosition = 0;
         private StringBuilder textBuffer = new StringBuilder();
         private boolean ijklCursorMode = false;
         public boolean clearOnFinish = false;
@@ -905,6 +940,40 @@ public class Main {
             }
 
             return lines;
+        }
+
+        public void moveToLine(int line) {
+            this.windowStartIndex = 0;
+            this.windowStartLine = line;
+
+            int newBufferPosition = 0;
+            int lines = 0;
+            while (lines != line) {
+
+                int nextLineStart = newBufferPosition;
+                boolean foundNextLine = false;
+                for (int i = newBufferPosition; i < this.textBuffer.length(); i++) {
+                    if (isNewLineChar(this.textBuffer.charAt(i))) {
+                        nextLineStart = i + 1;
+                        foundNextLine = true;
+                        break;
+                    }
+                }
+                // if we hit the end of the buffer just set to the last line
+                if (!foundNextLine) {
+                    this.windowStartLine = lines;
+                    break;
+                }
+                // otherwise 
+                else {
+                    newBufferPosition = nextLineStart;
+                }
+
+                lines++;
+            }
+
+            this.bufferPosition = newBufferPosition;
+            reprint();
         }
 
         public static void main(String[] args) throws IOException, InterruptedException {

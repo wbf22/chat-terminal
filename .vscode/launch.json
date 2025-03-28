@@ -38,10 +38,20 @@
         },
         {
             "type": "java",
-            "name": "chat in terminal",
+            "name": "chat in terminal mac",
             "request": "launch",
             "mainClass": "brandon.gpt.Main",
             "projectName": "chat-terminal_af68a5d7",
+            "args": [
+                "--api-key="
+            ]
+        },
+        {
+            "type": "java",
+            "name": "chat in terminal linux",
+            "request": "launch",
+            "mainClass": "brandon.gpt.Main",
+            "projectName": "chat-terminal_a724d630",
             "args": [
                 "--api-key="
             ]
